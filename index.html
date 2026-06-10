@@ -1097,6 +1097,61 @@ function Planner({ onReset }) {
           </>
         )}
 
+        {tab === "projects" && (
+          <>
+            <div style={{ columns:"290px", columnGap:"16px" }}>
+              {projects.map((sec, si) => (
+                <div key={sec.id} style={{ marginBottom:"16px", breakInside:"avoid" }}>
+                  <PUSectionCard section={sec} index={si} total={projects.length} deadlineFilter="all"
+                    onToggle={(ii) => persistProjects(projects.map((s,i) => i!==si?s:{ ...s, items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null}) }))}
+                    onDelete={(ii) => persistProjects(projects.map((s,i) => i!==si?s:{ ...s, items:s.items.filter((_,j)=>j!==ii) }))}
+                    onAddItem={(text) => persistProjects(projects.map((s,i) => i!==si?s:{ ...s, items:[...s.items,{text,done:false,completedAt:null,scheduledTo:null,deadline:null,timeSpent:0,timerStart:null}] }))}
+                    onOpenActions={(ii) => setPuActions({si,ii,item:projects[si].items[ii],section:projects[si]})}
+                    onToggleTimer={(ii) => persistProjects(projects.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>{ if(i!==ii) return it; if(it.timerStart){const e=Math.floor((Date.now()-it.timerStart)/1000);return{...it,timerStart:null,timeSpent:(it.timeSpent||0)+e};} return{...it,timerStart:Date.now()}; })}))}
+                    onAddTime={(ii,m) => persistProjects(projects.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==ii?it:{...it,timeSpent:(it.timeSpent||0)+(m*60)}) }))}
+                    onExecute={(ii) => {
+                      const sec=projects[si]; const item=sec.items[ii];
+                      const newItem={text:item.text,done:false,timeSpent:0,timerStart:null};
+                      let newSections=[...todaySections];
+                      const existing=newSections.find(s=>s.id===sec.id);
+                      if(existing) existing.items=[...existing.items,newItem];
+                      else newSections=[...newSections,{...sec,items:[newItem]}];
+                      persistToday(newSections);
+                      persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
+                    }}
+                    onMoveUp={() => { const p=[...projects]; const [m]=p.splice(si,1); p.splice(si-1,0,m); persistProjects(p); }}
+                    onMoveDown={() => { const p=[...projects]; const [m]=p.splice(si,1); p.splice(si+1,0,m); persistProjects(p); }}
+                    onRename={(name) => persistProjects(projects.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onDeleteSection={() => persistProjects(projects.filter((_,i) => i!==si))}
+                    onReorderItems={(items) => persistProjects(projects.map((s,i) => i!==si?s:{...s,items}))} />
+                </div>
+              ))}
+              <div style={{ marginBottom:"16px", breakInside:"avoid" }}>
+                {addingProjectSection ? (
+                  <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px", boxShadow:"0 2px 8px rgba(0,0,0,0.06)" }}>
+                    <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Project name</p>
+                    <div style={{ display:"flex", gap:"8px" }}>
+                      <input autoFocus value={newProjectSecName} onChange={e => setNewProjectSecName(e.target.value)}
+                        onKeyDown={e => { if(e.key==="Enter") addProjSection(); if(e.key==="Escape") setAddingProjectSection(false); }}
+                        placeholder="e.g. SFHEA, D.E.B.T App…"
+                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                      <button onClick={addProjSection} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                      <button onClick={() => setAddingProjectSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingProjectSection(true)}
+                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background="rgba(0,0,0,0.06)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.18)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background="rgba(0,0,0,0.03)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.1)"; }}>
+                    + New project
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
       </div>
 
       {/* Modals */}
