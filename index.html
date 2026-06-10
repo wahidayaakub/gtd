@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GTD">
+<title>GTD</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; padding: 0; background: #F5F1EB; font-family: Georgia, serif; }
+  button { font-family: Georgia, serif; }
+  input, textarea, select { font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+const todayStr = () => { const d = new Date(); return d.toISOString().slice(0,10); };
+const fmtDate  = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+const fmtShort = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
+
+// ─── seed ─────────────────────────────────────────────────────────────────────
+const mk = (arr) => arr.map(text => ({ text, done: false, timeSpent: 0, timerStart: null }));
+
+const SEED_TODAY = [
+  { id:"replies",  label:"Replies",   emoji:"✉️", color:"#E8D5B7", accent:"#C4A265", items: mk(["Sumedha","Arman","IS","Graduation","Open Day"]) },
+  { id:"work",     label:"Work",       emoji:"💼", color:"#D4E8D5", accent:"#5A9E62", items: mk(["Send mid-term question for moderation","Exam questions","Follow-up with Data Protection","CLO-PLO mapping","Follow-up SFHEA"]) },
+  { id:"errands",  label:"Errands",    emoji:"🛒", color:"#D5D9E8", accent:"#5A6A9E", items: mk(["Beli plastik sampah"]) },
+  { id:"home",     label:"Home",       emoji:"🏠", color:"#E8D5D5", accent:"#9E5A5A", items: mk(["Cats poop","Kemas store","Simpan baju","Kumpul sampah","Mount bike","Susun kasut","Clear bonet kereta"]) },
+  { id:"finances", label:"Finances",   emoji:"💰", color:"#E8E8D5", accent:"#8A9E5A", items: mk(["CIMB Group","AKPK"]) },
+];
+
+const POWERUP_SEED = [
+  { id:"career",     label:"Career",                          emoji:"🚀", color:"#F0E6D3", accent:"#C4823A", items:["Update CV","Apply Saudi","Apply kerja","Find side income sources","Apply part-time lecturing positions"] },
+  { id:"finance-b",  label:"Finance",                         emoji:"📊", color:"#D3EAD3", accent:"#3A8A3A", items:["Co-op Bank","Sort financials","Claims (including FP Week claims)","Financial statements & financial tracking","MK's contribution","Tax e-Filing"] },
+  { id:"research-b", label:"Research & Innovation",           emoji:"🔬", color:"#D3D8F0", accent:"#3A4EC4", items:["Update app","Feedbacks on app","Effectiveness in Journalling","ESG Paper","Financial Education Evaluation","IPO research revisit","MFA 2026 Conference","Private Retirement Scheme","Proposal for ADHD Financial Challenge","SMART - Questionnaire & recruit participants","Takaful Product Disclosure"] },
+  { id:"income",     label:"Income & Business",               emoji:"💡", color:"#F0D3EC", accent:"#C43A9E", items:["ADHD financial management","ADHD workspace vision","Business Registration","EmPOWER point for SCAMDEMIC","Find remote AI job","Goal setting → identify required resources","OE Journal","Sell stuff","Strategic plans","Talk for public","Training plans","TT shop confirmation"] },
+  { id:"profdev",    label:"Professional Development",        emoji:"📚", color:"#D3EFF0", accent:"#3A9EB4", items:["Learn Canva","Learn Claude","SFHEA","PDR2026/FJP2027","Workload planning"] },
+  { id:"teaching",   label:"Teaching & Academic Admin",       emoji:"🎓", color:"#EDD3F0", accent:"#9A3AC4", items:["A&F Club activity book","AOL","C38FM Aug Exam Papers","CFP - Behavioural Module","Hantar exam papers","HWUM FP Week Certificates","ihas assessment","Upload exam questions"] },
+  { id:"service",    label:"University Service & Networking", emoji:"🌐", color:"#F0EDD3", accent:"#C4B83A", items:["A&F Club Event - Apply for gift","Alumni network","PURE (Update + PURE Update)","Send copyright cert to innovation team"] },
+  { id:"homeorg",    label:"Home & Organisation",             emoji:"🗂️", color:"#F0D3D3", accent:"#C43A3A", items:["Dishes","Kemas dokumen","Life schedule & Schedule","Paste mi segera","Re-arrange store & Re-organise Adam's room","Re-organise pantry","Re-organise store","Susun buku"] },
+  { id:"family",     label:"Family",                          emoji:"❤️", color:"#FFE8E8", accent:"#D45050", items:["Adam's timetable"] },
+];
+const buildPowerUp = () => POWERUP_SEED.map(s => ({ ...s, items: s.items.map(text => ({ text, done:false, completedAt:null, scheduledTo:null, deadline:null, timeSpent:0, timerStart:null })) }));
+
+// ─── storage ──────────────────────────────────────────────────────────────────
+const LS_TODAY = "wahida-today-v5";
+const LS_PROJ  = "wahida-projects-v5";
+const LS_DONE  = "wahida-done-v5";
+const LS_PU    = "wahida-powerup-v5";
+const LS_DATE  = "wahida-date-v5";
+
+const load = (key, fallback) => { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; } };
+const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+// ─── format time ─────────────────────────────────────────────────────────────
+const fmtTime = (secs) => {
+  if (!secs) return null;
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60), h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  return `${m}m`;
+};
+
+// ─── TaskItem ─────────────────────────────────────────────────────────────────
+function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown, onToggleTimer, onAddTime, onMoveCategory, accent }) {
+  const [addingTime, setAddingTime] = useState(false);
+  const [mins, setMins] = useState("");
+  const [live, setLive] = useState(0);
+  const interval = useRef(null);
+
+  useEffect(() => {
+    if (item.timerStart) {
+      interval.current = setInterval(() => setLive(Math.floor((Date.now() - item.timerStart) / 1000)), 1000);
+    } else { clearInterval(interval.current); setLive(0); }
+    return () => clearInterval(interval.current);
+  }, [item.timerStart]);
+
+  const totalSecs = (item.timeSpent || 0) + live;
+  const urgent = item.text.includes("⚡");
+
+  const [showMenu, setShowMenu] = useState(false);
+
+  return (
+    <div style={{ borderRadius:"8px", background:"transparent", transition:"background 0.1s" }}
+      onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.04)"}
+      onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+      <div style={{ display:"flex", alignItems:"center", gap:"6px", padding:"5px 6px" }}>
+        {/* ▲▼ */}
+        <div style={{ display:"flex", flexDirection:"column", flexShrink:0 }}>
+          <button onClick={onMoveUp} disabled={index===0} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▲</button>
+          <button onClick={onMoveDown} disabled={index===total-1} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===total-1?"default":"pointer", fontSize:"8px", color:index===total-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▼</button>
+        </div>
+        {/* checkbox */}
+        <button onClick={onToggle} style={{ flexShrink:0, width:"18px", height:"18px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+          {item.done && <span style={{ color:"white", fontSize:"9px", fontWeight:700 }}>✓</span>}
+        </button>
+        {/* label */}
+        <button onClick={onToggle} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", lineHeight:"1.4", color:item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:urgent&&!item.done?"italic":"normal", padding:0 }}>
+          {item.text}
+          {totalSecs > 0 && <span style={{ fontSize:"10px", marginLeft:"6px", color:item.timerStart?"#5A9E62":"rgba(0,0,0,0.35)", fontWeight:600, fontStyle:"normal" }}>⏱ {fmtTime(totalSecs)}{item.timerStart?" ●":""}</span>}
+        </button>
+        {/* timer */}
+        <button onClick={onToggleTimer} style={{ background:item.timerStart?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:item.timerStart?"white":"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>
+          {item.timerStart ? "⏹" : "▶"}
+        </button>
+        {/* +m */}
+        <button onClick={() => setAddingTime(v => !v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 6px", fontSize:"10px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>+m</button>
+        {/* ⋯ menu */}
+        <div style={{ position:"relative", flexShrink:0 }}>
+          <button onClick={() => setShowMenu(v => !v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"12px", cursor:"pointer", color:"rgba(0,0,0,0.4)", fontWeight:700, lineHeight:1 }}>⋯</button>
+          {showMenu && (
+            <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"150px" }}>
+              <button onClick={() => { onMoveCategory(); setShowMenu(false); }}
+                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                onMouseLeave={e => e.currentTarget.style.background="none"}>📂 Move to category</button>
+              <button onClick={() => { onDelete(); setShowMenu(false); }}
+                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
+                onMouseEnter={e => e.currentTarget.style.background="rgba(196,58,58,0.06)"}
+                onMouseLeave={e => e.currentTarget.style.background="none"}>🗑 Delete</button>
+            </div>
+          )}
+        </div>
+      </div>
+      {addingTime && (
+        <div style={{ display:"flex", gap:"6px", padding:"2px 8px 6px 34px", alignItems:"center" }}>
+          <input autoFocus type="number" value={mins} onChange={e => setMins(e.target.value)} placeholder="mins"
+            style={{ width:"60px", border:"none", borderBottom:`2px solid ${accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"2px 0" }} />
+          <button onClick={() => { onAddTime(parseInt(mins)||0); setMins(""); setAddingTime(false); }}
+            style={{ background:accent, border:"none", borderRadius:"6px", color:"white", padding:"3px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+          <button onClick={() => setAddingTime(false)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", cursor:"pointer", fontSize:"12px" }}>✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SectionCard ──────────────────────────────────────────────────────────────
+function SectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onReorder, onToggleTimer, onAddTime, onDeleteSection, onRenameSection, onMoveUp, onMoveDown, onMoveCategory }) {
+  const [adding,    setAdding]    = useState(false);
+  const [txt,       setTxt]       = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  const [editing,   setEditing]   = useState(false);
+  const [editName,  setEditName]  = useState(section.label);
+  const [showMenu,  setShowMenu]  = useState(false);
+
+  const done  = section.items.filter(it => it.done).length;
+  const total = section.items.length;
+  const pct   = total ? Math.round((done/total)*100) : 0;
+  const totalTime = section.items.reduce((a,it) => a + (it.timeSpent||0), 0);
+  const submit = () => { if (txt.trim()) { onAddItem(txt.trim()); setTxt(""); } setAdding(false); };
+
+  return (
+    <div style={{ background:section.color, borderRadius:"16px", padding:"14px 15px 10px", boxShadow:"0 2px 10px rgba(0,0,0,0.07)" }}>
+      {/* header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"5px" }}>
+        {/* left: collapse + label */}
+        <button onClick={() => setCollapsed(v => !v)}
+          style={{ display:"flex", alignItems:"center", gap:"6px", background:"none", border:"none", cursor:"pointer", padding:0, flex:1, textAlign:"left" }}>
+          <span style={{ fontSize:"11px", color:"rgba(0,0,0,0.3)", lineHeight:1 }}>{collapsed ? "▶" : "▼"}</span>
+          <span style={{ fontSize:"15px" }}>{section.emoji}</span>
+          {editing ? (
+            <input autoFocus value={editName}
+              onChange={e => setEditName(e.target.value)}
+              onBlur={() => { onRenameSection(editName.trim() || section.label); setEditing(false); }}
+              onKeyDown={e => { if(e.key==="Enter"){ onRenameSection(editName.trim() || section.label); setEditing(false); } if(e.key==="Escape") setEditing(false); }}
+              onClick={e => e.stopPropagation()}
+              style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", border:"none", borderBottom:"2px solid rgba(0,0,0,0.3)", background:"transparent", outline:"none", width:"120px", padding:"1px 2px" }} />
+          ) : (
+            <span style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", color:"rgba(0,0,0,0.75)" }}>{section.label}</span>
+          )}
+          {totalTime > 0 && <span style={{ fontSize:"10px", color:"rgba(0,0,0,0.35)", fontWeight:600 }}>⏱ {fmtTime(totalTime)}</span>}
+        </button>
+        {/* right: count + menu */}
+        <div style={{ display:"flex", alignItems:"center", gap:"6px", flexShrink:0 }}>
+          <span style={{ fontSize:"10px", fontFamily:"monospace", background:"rgba(0,0,0,0.1)", borderRadius:"20px", padding:"2px 7px", color:"rgba(0,0,0,0.5)", fontWeight:600 }}>{done}/{total}</span>
+          <div style={{ display:"flex", flexDirection:"column", gap:"1px" }}>
+            <button onClick={onMoveUp} disabled={index===0}
+              style={{ background:"none", border:"none", padding:"1px 4px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.3)", lineHeight:1 }}>▲</button>
+            <button onClick={onMoveDown} disabled={index===totalSections-1}
+              style={{ background:"none", border:"none", padding:"1px 4px", cursor:index===totalSections-1?"default":"pointer", fontSize:"8px", color:index===totalSections-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.3)", lineHeight:1 }}>▼</button>
+          </div>
+          <div style={{ position:"relative" }}>
+            <button onClick={() => setShowMenu(v => !v)}
+              style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"6px", padding:"2px 7px", fontSize:"12px", cursor:"pointer", color:"rgba(0,0,0,0.4)", fontWeight:700, lineHeight:1 }}>⋯</button>
+            {showMenu && (
+              <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"130px" }}>
+                <button onClick={() => { setEditing(true); setShowMenu(false); }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                  onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>✎ Rename</button>
+                <button onClick={() => { onDeleteSection(); setShowMenu(false); }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
+                  onMouseEnter={e => e.currentTarget.style.background="rgba(196,58,58,0.06)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>🗑 Delete section</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* progress bar */}
+      {!collapsed && (
+        <div style={{ height:"3px", background:"rgba(0,0,0,0.1)", borderRadius:"4px", marginBottom:"7px" }}>
+          <div style={{ height:"100%", width:`${pct}%`, background:section.accent, borderRadius:"4px", transition:"width 0.3s" }} />
+        </div>
+      )}
+
+      {/* tasks */}
+      {!collapsed && (
+        <>
+          {section.items.map((item, i) => (
+            <TaskItem key={i} item={item} index={i} total={total} accent={section.accent}
+              onToggle={() => onToggle(i)} onDelete={() => onDelete(i)}
+              onMoveUp={() => onReorder(i, i-1)} onMoveDown={() => onReorder(i, i+1)}
+              onToggleTimer={() => onToggleTimer(i)} onAddTime={(m) => onAddTime(i, m)}
+          onMoveCategory={() => { if(onMoveCategory) onMoveCategory(i); }} />
+          ))}
+          {adding ? (
+            <div style={{ display:"flex", gap:"6px", marginTop:"5px", padding:"0 6px" }}>
+              <input autoFocus value={txt} onChange={e => setTxt(e.target.value)}
+                onKeyDown={e => { if(e.key==="Enter") submit(); if(e.key==="Escape") setAdding(false); }}
+                placeholder="New task…"
+                style={{ flex:1, border:"none", borderBottom:`2px solid ${section.accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+              <button onClick={submit} style={{ background:section.accent, border:"none", borderRadius:"6px", color:"white", padding:"4px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+              <button onClick={() => setAdding(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"6px", padding:"4px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setAdding(true)} style={{ marginTop:"2px", marginLeft:"4px", background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.28)", fontFamily:"'Georgia', serif", padding:"3px 2px" }}>+ add task</button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── PU TaskItem ──────────────────────────────────────────────────────────────
+function PUTaskItem({ item, index, total, accent, onToggle, onDelete, onOpenActions, onToggleTimer, onAddTime, onExecute, onMoveUp, onMoveDown }) {
+  const [addingTime, setAddingTime] = useState(false);
+  const [mins, setMins] = useState("");
+  const [live, setLive] = useState(0);
+  const interval = useRef(null);
+
+  useEffect(() => {
+    if (item.timerStart) { interval.current = setInterval(() => setLive(Math.floor((Date.now()-item.timerStart)/1000)), 1000); }
+    else { clearInterval(interval.current); setLive(0); }
+    return () => clearInterval(interval.current);
+  }, [item.timerStart]);
+
+  const totalSecs = (item.timeSpent||0) + live;
+  const today = todayStr();
+  const isOverdue  = item.deadline && !item.done && item.deadline < today;
+  const isDueToday = item.deadline && !item.done && item.deadline === today;
+
+  return (
+    <div style={{ borderRadius:"8px", background:"transparent", transition:"background 0.1s" }}
+      onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.04)"}
+      onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+      <div style={{ display:"flex", alignItems:"center", gap:"6px", padding:"5px 6px" }}>
+        <div style={{ display:"flex", flexDirection:"column", flexShrink:0 }}>
+          <button onClick={onMoveUp} disabled={index===0} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▲</button>
+          <button onClick={onMoveDown} disabled={index===total-1} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===total-1?"default":"pointer", fontSize:"8px", color:index===total-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▼</button>
+        </div>
+        <button onClick={onToggle} style={{ flexShrink:0, width:"17px", height:"17px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+          {item.done && <span style={{ color:"white", fontSize:"8px", fontWeight:700 }}>✓</span>}
+        </button>
+        <button onClick={onToggle} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", lineHeight:"1.4", color:item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", padding:0 }}>
+          {item.text}
+          {item.executionDate && !item.done && (
+            <span style={{ fontSize:"10px", marginLeft:"7px", fontWeight:600, color:item.executionDate===todayStr()?"#5A9E62":"rgba(0,0,0,0.45)", background:item.executionDate===todayStr()?"rgba(90,158,98,0.12)":"rgba(0,0,0,0.06)", borderRadius:"4px", padding:"1px 5px" }}>
+              📅 {item.executionDate===todayStr()?"Today":fmtShort(item.executionDate)}
+            </span>
+          )}
+          {item.deadline && !item.done && (
+            <span style={{ fontSize:"10px", marginLeft:"7px", fontWeight:600, color:isOverdue?"#C43A3A":isDueToday?"#C4823A":"rgba(0,0,0,0.4)", background:isOverdue?"rgba(196,58,58,0.1)":isDueToday?"rgba(196,130,58,0.1)":"rgba(0,0,0,0.06)", borderRadius:"4px", padding:"1px 5px" }}>
+              {isOverdue?"⚠ ":isDueToday?"⏰ ":"⏳ "}{fmtShort(item.deadline)}
+            </span>
+          )}
+          {totalSecs > 0 && <span style={{ fontSize:"10px", marginLeft:"6px", color:item.timerStart?"#5A9E62":"rgba(0,0,0,0.35)", fontWeight:600, fontStyle:"normal" }}>⏱ {fmtTime(totalSecs)}{item.timerStart?" ●":""}</span>}
+          {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"6px", opacity:0.4, fontStyle:"italic", fontWeight:400 }}>✓ {fmtShort(item.completedAt)}</span>}
+        </button>
+        <button onClick={onToggleTimer} style={{ background:item.timerStart?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:item.timerStart?"white":"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>{item.timerStart?"⏹":"▶"}</button>
+        <button onClick={() => setAddingTime(v=>!v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 6px", fontSize:"10px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>+m</button>
+        <button onClick={onExecute} style={{ background:"#5A9E62", border:"none", borderRadius:"6px", padding:"3px 8px", fontSize:"10px", cursor:"pointer", color:"white", fontWeight:700, flexShrink:0 }} title="Move to Today">→ Today</button>
+        <button onClick={onOpenActions} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>•••</button>
+        <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"11px", color:"rgba(0,0,0,0.18)", padding:"0 2px", flexShrink:0 }}
+          onMouseEnter={e => e.currentTarget.style.color="rgba(180,0,0,0.55)"}
+          onMouseLeave={e => e.currentTarget.style.color="rgba(0,0,0,0.18)"}>✕</button>
+      </div>
+      {addingTime && (
+        <div style={{ display:"flex", gap:"6px", padding:"2px 8px 6px 28px", alignItems:"center" }}>
+          <input autoFocus type="number" value={mins} onChange={e => setMins(e.target.value)} placeholder="mins"
+            style={{ width:"60px", border:"none", borderBottom:`2px solid ${accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"2px 0" }} />
+          <button onClick={() => { onAddTime(parseInt(mins)||0); setMins(""); setAddingTime(false); }}
+            style={{ background:accent, border:"none", borderRadius:"6px", color:"white", padding:"3px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+          <button onClick={() => setAddingTime(false)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", cursor:"pointer", fontSize:"12px" }}>✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PU SectionCard ───────────────────────────────────────────────────────────
+function PUSectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onOpenActions, onToggleTimer, onAddTime, onExecute, onMoveUp, onMoveDown, onRename, onDeleteSection, onReorderItems, deadlineFilter }) {
+  const [adding,    setAdding]    = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [editing,   setEditing]   = useState(false);
+  const [editName,  setEditName]  = useState(section.label);
+  const [showMenu,  setShowMenu]  = useState(false);
+  const [txt, setTxt] = useState("");
+  const submit = () => { if (txt.trim()) { onAddItem(txt.trim()); setTxt(""); } setAdding(false); };
+
+  const visibleItems = deadlineFilter === "all" ? section.items
+    : deadlineFilter === "hasDeadline" ? section.items.filter(it => it.deadline)
+    : deadlineFilter === "overdue"     ? section.items.filter(it => it.deadline && it.deadline < todayStr() && !it.done)
+    : deadlineFilter === "noDeadline"  ? section.items.filter(it => !it.deadline)
+    : section.items;
+
+  if (visibleItems.length === 0 && deadlineFilter !== "all") return null;
+
+  const done  = section.items.filter(it => it.done).length;
+  const total = section.items.length;
+  const pct   = total ? Math.round((done/total)*100) : 0;
+
+  return (
+    <div style={{ background:section.color, borderRadius:"16px", padding:"14px 15px 10px", boxShadow:"0 2px 10px rgba(0,0,0,0.07)" }}>
+      {/* header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"5px" }}>
+        {/* collapse + label */}
+        <button onClick={() => setCollapsed(v => !v)}
+          style={{ display:"flex", alignItems:"center", gap:"6px", background:"none", border:"none", cursor:"pointer", padding:0, flex:1, textAlign:"left" }}>
+          <span style={{ fontSize:"11px", color:"rgba(0,0,0,0.3)", lineHeight:1 }}>{collapsed ? "▶" : "▼"}</span>
+          <span style={{ fontSize:"15px" }}>{section.emoji}</span>
+          {editing ? (
+            <input autoFocus value={editName}
+              onChange={e => setEditName(e.target.value)}
+              onBlur={() => { onRename(editName.trim() || section.label); setEditing(false); }}
+              onKeyDown={e => { if(e.key==="Enter"){ onRename(editName.trim() || section.label); setEditing(false); } if(e.key==="Escape") setEditing(false); }}
+              onClick={e => e.stopPropagation()}
+              style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", border:"none", borderBottom:"2px solid rgba(0,0,0,0.3)", background:"transparent", outline:"none", width:"120px", padding:"1px 2px" }} />
+          ) : (
+            <span style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", color:"rgba(0,0,0,0.75)" }}>{section.label}</span>
+          )}
+        </button>
+        {/* right: count + arrows + menu */}
+        <div style={{ display:"flex", alignItems:"center", gap:"4px", flexShrink:0 }}>
+          <span style={{ fontSize:"10px", fontFamily:"monospace", background:"rgba(0,0,0,0.1)", borderRadius:"20px", padding:"2px 7px", color:"rgba(0,0,0,0.5)", fontWeight:600 }}>{done}/{total}</span>
+          <div style={{ display:"flex", flexDirection:"column", gap:"1px" }}>
+            <button onClick={onMoveUp} disabled={index===0}
+              style={{ background:"none", border:"none", padding:"1px 4px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.3)", lineHeight:1 }}>▲</button>
+            <button onClick={onMoveDown} disabled={index===totalSections-1}
+              style={{ background:"none", border:"none", padding:"1px 4px", cursor:index===totalSections-1?"default":"pointer", fontSize:"8px", color:index===totalSections-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.3)", lineHeight:1 }}>▼</button>
+          </div>
+          <div style={{ position:"relative" }}>
+            <button onClick={() => setShowMenu(v => !v)}
+              style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"6px", padding:"2px 7px", fontSize:"12px", cursor:"pointer", color:"rgba(0,0,0,0.4)", fontWeight:700, lineHeight:1 }}>⋯</button>
+            {showMenu && (
+              <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"130px" }}>
+                <button onClick={() => { setEditing(true); setShowMenu(false); }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                  onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>✎ Rename</button>
+                <button onClick={() => { onDeleteSection(); setShowMenu(false); }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
+                  onMouseEnter={e => e.currentTarget.style.background="rgba(196,58,58,0.06)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>🗑 Delete</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {!collapsed && (
+        <>
+          <div style={{ height:"3px", background:"rgba(0,0,0,0.1)", borderRadius:"4px", marginBottom:"7px" }}>
+            <div style={{ height:"100%", width:`${pct}%`, background:section.accent, borderRadius:"4px", transition:"width 0.3s" }} />
+          </div>
+          {visibleItems.map((item, i) => {
+            const realIdx = section.items.indexOf(item);
+            return (
+              <PUTaskItem key={realIdx} item={item} accent={section.accent}
+                onToggle={() => onToggle(realIdx)} onDelete={() => onDelete(realIdx)}
+                onOpenActions={() => onOpenActions(realIdx)}
+                onToggleTimer={() => onToggleTimer(realIdx)} onAddTime={(m) => onAddTime(realIdx, m)}
+                onExecute={() => onExecute(realIdx)} />
+            );
+          })}
+          {adding ? (
+            <div style={{ display:"flex", gap:"6px", marginTop:"5px", padding:"0 6px" }}>
+              <input autoFocus value={txt} onChange={e => setTxt(e.target.value)}
+                onKeyDown={e => { if(e.key==="Enter") submit(); if(e.key==="Escape") setAdding(false); }}
+                placeholder="New task…"
+                style={{ flex:1, border:"none", borderBottom:`2px solid ${section.accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+              <button onClick={submit} style={{ background:section.accent, border:"none", borderRadius:"6px", color:"white", padding:"4px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+              <button onClick={() => setAdding(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"6px", padding:"4px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setAdding(true)} style={{ marginTop:"2px", marginLeft:"4px", background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.28)", fontFamily:"'Georgia', serif", padding:"3px 2px" }}>+ add task</button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Done Tab ─────────────────────────────────────────────────────────────────
+function DoneTab({ done }) {
+  const [selDate, setSelDate] = useState("all");
+  const [selCat,  setSelCat]  = useState("all");
+
+  const dates = Array.from(new Set(done.map(t => t.pushedAt))).sort().reverse();
+  const cats  = Array.from(new Set(done.map(t => t.category)));
+
+  const filtered = done.filter(t =>
+    (selDate === "all" || t.pushedAt === selDate) &&
+    (selCat  === "all" || t.category === selCat)
+  ).sort((a,b) => b.pushedAt.localeCompare(a.pushedAt));
+
+  const pill = (label, val, cur, set, color="#2C2C2C") => (
+    <button key={val} onClick={() => set(val)} style={{ background:cur===val?color:"rgba(0,0,0,0.06)", color:cur===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:cur===val?700:400, whiteSpace:"nowrap", transition:"all 0.15s" }}>{label}</button>
+  );
+
+  // Group by date
+  const grouped = {};
+  filtered.forEach(t => { if (!grouped[t.pushedAt]) grouped[t.pushedAt] = []; grouped[t.pushedAt].push(t); });
+
+  return (
+    <div>
+      <div style={{ marginBottom:"16px", display:"flex", flexDirection:"column", gap:"10px" }}>
+        <div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Date</div>
+          <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selDate,setSelDate)}{dates.map(d => pill(fmtShort(d),d,selDate,setSelDate))}</div>
+        </div>
+        <div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Category</div>
+          <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selCat,setSelCat)}{cats.map(c => pill(c,c,selCat,setSelCat,"#5A6A9E"))}</div>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{ color:"rgba(0,0,0,0.35)", fontFamily:"'Georgia', serif", fontSize:"13px", padding:"20px 0" }}>
+          {done.length === 0 ? "Nothing pushed yet — tick tasks and hit Push Completed! ✨" : "No tasks match this filter."}
+        </div>
+      ) : (
+        Object.entries(grouped).map(([date, tasks]) => (
+          <div key={date} style={{ marginBottom:"24px" }}>
+            <div style={{ fontFamily:"'Georgia', serif", fontSize:"12px", fontWeight:700, color:"rgba(0,0,0,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:"8px" }}>
+              {fmtDate(date)} — {tasks.length} task{tasks.length!==1?"s":""}
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:"5px" }}>
+              {tasks.map((t, i) => (
+                <div key={i} style={{ background:"white", borderRadius:"10px", padding:"10px 14px", display:"flex", alignItems:"center", gap:"10px", boxShadow:"0 1px 6px rgba(0,0,0,0.05)" }}>
+                  <span style={{ fontSize:"13px", flexShrink:0 }}>{t.emoji}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.6)", textDecoration:"line-through" }}>{t.text}</div>
+                    <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.35)", marginTop:"2px" }}>
+                      {t.category}
+                      {t.timeSpent > 0 && <span style={{ marginLeft:"8px", color:"#5A9E62", fontWeight:600 }}>⏱ {fmtTime(t.timeSpent)}</span>}
+                    </div>
+                  </div>
+                  <div style={{ background:t.color, borderRadius:"6px", padding:"3px 8px", fontSize:"10px", fontWeight:600, color:t.accent, flexShrink:0 }}>✓</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ─── Review Tab ───────────────────────────────────────────────────────────────
+function ReviewTab({ done, powerUp }) {
+  const [selDate, setSelDate] = useState("all");
+  const [selCat,  setSelCat]  = useState("all");
+
+  const puDone = [];
+  powerUp.forEach(sec => sec.items.filter(it=>it.done).forEach(it => {
+    puDone.push({ pushedAt: it.completedAt||todayStr(), category:sec.label, emoji:sec.emoji, accent:sec.accent, color:sec.color, text:it.text, timeSpent:it.timeSpent||0, source:"powerup" });
+  }));
+
+  const all = [...done.map(t=>({...t,source:"today"})), ...puDone].sort((a,b)=>b.pushedAt.localeCompare(a.pushedAt));
+  const dates = Array.from(new Set(all.map(t=>t.pushedAt))).sort().reverse();
+  const cats  = Array.from(new Set(all.map(t=>t.category)));
+
+  const filtered = all.filter(t =>
+    (selDate==="all" || t.pushedAt===selDate) &&
+    (selCat==="all"  || t.category===selCat)
+  );
+
+  const pill = (label, val, cur, set, color="#2C2C2C") => (
+    <button key={val} onClick={() => set(val)} style={{ background:cur===val?color:"rgba(0,0,0,0.06)", color:cur===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:cur===val?700:400, whiteSpace:"nowrap", transition:"all 0.15s" }}>{label}</button>
+  );
+
+  const grouped = {};
+  filtered.forEach(t => { if (!grouped[t.pushedAt]) grouped[t.pushedAt] = []; grouped[t.pushedAt].push(t); });
+
+  const totalTime = filtered.reduce((a,t) => a+(t.timeSpent||0), 0);
+
+  return (
+    <div>
+      <div style={{ marginBottom:"16px", display:"flex", flexDirection:"column", gap:"10px" }}>
+        <div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Date</div>
+          <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selDate,setSelDate)}{dates.map(d => pill(fmtShort(d),d,selDate,setSelDate))}</div>
+        </div>
+        <div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Category</div>
+          <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selCat,setSelCat)}{cats.map(c => pill(c,c,selCat,setSelCat,"#5A6A9E"))}</div>
+        </div>
+      </div>
+      {totalTime > 0 && (
+        <div style={{ background:"white", borderRadius:"12px", padding:"12px 16px", marginBottom:"16px", boxShadow:"0 1px 6px rgba(0,0,0,0.05)", display:"flex", alignItems:"center", gap:"10px" }}>
+          <span style={{ fontSize:"18px" }}>⏱</span>
+          <div>
+            <div style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"15px" }}>{fmtTime(totalTime)} tracked</div>
+            <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.4)" }}>{filtered.length} tasks in this view</div>
+          </div>
+        </div>
+      )}
+      {filtered.length === 0 ? (
+        <div style={{ color:"rgba(0,0,0,0.35)", fontFamily:"'Georgia', serif", fontSize:"13px", padding:"20px 0" }}>No completed tasks yet. ✨</div>
+      ) : (
+        Object.entries(grouped).map(([date, tasks]) => (
+          <div key={date} style={{ marginBottom:"24px" }}>
+            <div style={{ fontFamily:"'Georgia', serif", fontSize:"12px", fontWeight:700, color:"rgba(0,0,0,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:"8px", display:"flex", justifyContent:"space-between" }}>
+              <span>{fmtDate(date)}</span>
+              <span style={{ fontWeight:400 }}>{tasks.length} task{tasks.length!==1?"s":""} · {fmtTime(tasks.reduce((a,t)=>a+(t.timeSpent||0),0)) || "no time tracked"}</span>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:"5px" }}>
+              {tasks.map((t, i) => (
+                <div key={i} style={{ background:"white", borderRadius:"10px", padding:"10px 14px", display:"flex", alignItems:"center", gap:"10px", boxShadow:"0 1px 6px rgba(0,0,0,0.05)" }}>
+                  <span style={{ fontSize:"13px", flexShrink:0 }}>{t.emoji}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.6)", textDecoration:"line-through" }}>{t.text}</div>
+                    <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.35)", marginTop:"2px" }}>
+                      {t.category}
+                      {t.source==="powerup" && <span style={{ marginLeft:"6px", color:"#C4823A", fontWeight:600 }}>⚡ PU</span>}
+                      {t.timeSpent>0 && <span style={{ marginLeft:"8px", color:"#5A9E62", fontWeight:600 }}>⏱ {fmtTime(t.timeSpent)}</span>}
+                    </div>
+                  </div>
+                  <div style={{ background:t.color, borderRadius:"6px", padding:"3px 8px", fontSize:"10px", fontWeight:600, color:t.accent, flexShrink:0 }}>✓</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ─── Modals ───────────────────────────────────────────────────────────────────
+function MoveTodayCategoryModal({ item, fromSi, sections, onMove, onClose }) {
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <div style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>📂 Move "{item.text}"</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", marginBottom:"20px" }}>
+          {sections.map((sec, i) => (
+            <button key={i} onClick={() => { onMove(i); onClose(); }}
+              style={{ background: i === fromSi ? sec.color : "rgba(0,0,0,0.05)", border: i === fromSi ? `2px solid ${sec.accent}` : "2px solid transparent", borderRadius:"8px", padding:"6px 12px", cursor: i === fromSi ? "default" : "pointer", fontFamily:"'Georgia', serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: i === fromSi ? 700 : 400 }}>
+              {sec.emoji} {sec.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function BackupModal({ today, done, powerUp, date, projects, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const text = JSON.stringify({ today, done, powerUp, date, projects, exportedAt: new Date().toISOString() });
+
+  const saveFile = () => {
+    try {
+      const blob = new Blob([text], { type: "application/json" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `planner-backup-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
+    } catch(e) { copy(); } // fallback to clipboard if download fails
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(text).catch(() => { const ta = document.getElementById("bta"); if(ta){ta.select();document.execCommand("copy");} });
+    setCopied(true); setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <h2 style={{ fontFamily:"'Georgia', serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>📋 Backup</h2>
+        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Georgia', serif" }}>
+          Save as a file to iCloud Drive, or copy the text to Notes/WhatsApp.
+        </p>
+
+        {/* Option 1: Save file */}
+        <button onClick={saveFile} style={{ width:"100%", background:saved?"#5A9E62":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700, marginBottom:"8px", transition:"background 0.2s" }}>
+          {saved ? "✓ File saved!" : "💾 Save as file (iCloud Drive)"}
+        </button>
+
+        {/* Option 2: Copy text */}
+        <button onClick={copy} style={{ width:"100%", background:copied?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:copied?"white":"rgba(0,0,0,0.6)", padding:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:600, marginBottom:"14px", transition:"background 0.2s" }}>
+          {copied ? "✓ Copied!" : "📋 Copy to clipboard"}
+        </button>
+
+        <textarea id="bta" readOnly value={text} style={{ width:"100%", height:"80px", borderRadius:"8px", border:"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", color:"rgba(0,0,0,0.55)", resize:"none", boxSizing:"border-box", background:"#F5F1EB" }} />
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", marginTop:"8px" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+function RestoreModal({ onRestoreAndReset, onClose }) {
+  const [txt, setTxt] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const doRestore = (jsonStr) => {
+    try {
+      const b = JSON.parse(jsonStr.trim());
+      if (b.today)    save(LS_TODAY, b.today);
+      if (b.done)     save(LS_DONE,  b.done);
+      if (b.powerUp)  save(LS_PU,    b.powerUp);
+      if (b.date)     save(LS_DATE,  b.date);
+      if (b.projects) save(LS_PROJ,  b.projects);
+      setMsg("✓ Restored!");
+      setTimeout(() => { onRestoreAndReset(); }, 1000);
+    } catch { setMsg("✗ Invalid backup file."); }
+  };
+
+  const loadFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => doRestore(ev.target.result);
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <h2 style={{ fontFamily:"'Georgia', serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>⬆ Restore Backup</h2>
+        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Georgia', serif" }}>Load from iCloud file, or paste backup text.</p>
+
+        {/* Option 1: File */}
+        <label style={{ display:"block", width:"100%", background:"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700, marginBottom:"12px", textAlign:"center", boxSizing:"border-box" }}>
+          📂 Load from file (iCloud Drive)
+          <input type="file" accept=".json,application/json" onChange={loadFile} style={{ display:"none" }} />
+        </label>
+
+        {/* Option 2: Paste */}
+        <textarea value={txt} onChange={e => setTxt(e.target.value)} placeholder="…or paste backup text here" style={{ width:"100%", height:"90px", borderRadius:"8px", border:"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", resize:"none", boxSizing:"border-box" }} />
+        {msg && <div style={{ marginTop:"8px", fontSize:"13px", color:msg.startsWith("✓")?"#5A9E62":"#C43A3A", fontFamily:"'Georgia', serif", fontWeight:600 }}>{msg}</div>}
+        <div style={{ display:"flex", gap:"8px", marginTop:"10px" }}>
+          <button onClick={() => doRestore(txt)} style={{ flex:1, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700 }}>Restore from text</button>
+          <button onClick={onClose} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px" }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PUActionsModal({ item, section, categories, onSetDeadline, onSetExecution, onMoveCategory, onClose }) {
+  const [deadline,  setDeadline]  = useState(item.deadline      || "");
+  const [execDate,  setExecDate]  = useState(item.executionDate || "");
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)", maxHeight:"90vh", overflowY:"auto" }}>
+        <div style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>{section.emoji} {item.text}</div>
+
+        {/* Move to category */}
+        <div style={{ marginBottom:"16px" }}>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"8px", fontFamily:"'Georgia', serif" }}>📂 Move to category</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+            {categories.map((cat, i) => (
+              <button key={i} onClick={() => { onMoveCategory(i); onClose(); }}
+                style={{ background: cat.id === section.id ? cat.color : "rgba(0,0,0,0.05)", border: cat.id === section.id ? `2px solid ${cat.accent}` : "2px solid transparent", borderRadius:"8px", padding:"5px 10px", cursor: cat.id === section.id ? "default" : "pointer", fontFamily:"'Georgia', serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: cat.id === section.id ? 700 : 400 }}>
+                {cat.emoji} {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Execution date */}
+        <div style={{ marginBottom:"16px" }}>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Georgia', serif" }}>📅 Execution date <span style={{ opacity:0.6 }}>(→ Today on this date)</span></div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <input type="date" value={execDate} onChange={e => setExecDate(e.target.value)}
+              style={{ flex:1, border:"1px solid #5A9E62", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Georgia', serif" }} />
+            <button onClick={() => { onSetExecution(execDate||null); onClose(); }}
+              style={{ background:"#5A9E62", border:"none", borderRadius:"6px", color:"white", padding:"6px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Set</button>
+            {item.executionDate && <button onClick={() => { onSetExecution(null); onClose(); }}
+              style={{ background:"rgba(196,58,58,0.1)", border:"none", borderRadius:"6px", color:"#C43A3A", padding:"6px 10px", cursor:"pointer", fontSize:"12px" }}>Remove</button>}
+          </div>
+        </div>
+
+        {/* Deadline */}
+        <div style={{ marginBottom:"20px" }}>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Georgia', serif" }}>⏳ Deadline</div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
+              style={{ flex:1, border:"1px solid #5A6A9E", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Georgia', serif" }} />
+            <button onClick={() => { onSetDeadline(deadline||null); onClose(); }}
+              style={{ background:"#5A6A9E", border:"none", borderRadius:"6px", color:"white", padding:"6px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Set</button>
+            {item.deadline && <button onClick={() => { onSetDeadline(null); onClose(); }}
+              style={{ background:"rgba(196,58,58,0.1)", border:"none", borderRadius:"6px", color:"#C43A3A", padding:"6px 10px", cursor:"pointer", fontSize:"12px" }}>Remove</button>}
+          </div>
+        </div>
+
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+const SEC_COLORS  = ["#E8D5B7","#D4E8D5","#D5D9E8","#E8D5D5","#E8E8D5","#F0E6D3","#D3EAD3","#D3D8F0","#F0D3EC","#EDD3F0"];
+const SEC_ACCENTS = ["#C4A265","#5A9E62","#5A6A9E","#9E5A5A","#8A9E5A","#C4823A","#3A8A3A","#3A4EC4","#C43A9E","#9A3AC4"];
+const EMOJIS      = ["📌","📋","🔖","🗒️","⭐","🎯","🔔","📎","🗓️","✏️"];
+
+function Planner({ onReset }) {
+  const [todaySections, setTodaySections] = useState(SEED_TODAY);
+  const [projects,      setProjects]      = useState([]);
+  const [done,          setDone]          = useState([]);
+  const [powerUp,       setPowerUp]       = useState(buildPowerUp());
+  const [date,          setDate]          = useState(todayStr());
+  const [tab,           setTab]           = useState("today");
+  const [addingSection, setAddingSection] = useState(false);
+  const [newSecName,    setNewSecName]    = useState("");
+  const [showBackup,    setShowBackup]    = useState(false);
+  const [showRestore,   setShowRestore]   = useState(false);
+  const [puActions,     setPuActions]     = useState(null);
+  const [deadlineFilter,setDeadlineFilter]= useState("all");
+  const [addingPUSection,      setAddingPUSection]      = useState(false);
+  const [newPUSecName,         setNewPUSecName]         = useState("");
+  const [addingProjectSection, setAddingProjectSection] = useState(false);
+  const [newProjectSecName,    setNewProjectSecName]    = useState("");
+  const [editingDate,   setEditingDate]   = useState(false);
+  const [movingItem,    setMovingItem]    = useState(null); // { si, ii }
+  const [loaded,        setLoaded]        = useState(false);
+
+  // Load from localStorage after mount — guarantees we get persisted data
+  useEffect(() => {
+    const t  = load(LS_TODAY, null);
+    const d  = load(LS_DONE,  null);
+    const p  = load(LS_PU,    null);
+    const pr = load(LS_PROJ,  null);
+    const dt = load(LS_DATE,  null);
+    const today = todayStr();
+
+    let sections = t || SEED_TODAY;
+    let pu = p || buildPowerUp();
+
+    // Auto-pull PU tasks whose executionDate === today into Today
+    const toAdd = [];
+    const updatedPU = pu.map(sec => {
+      const keep = [];
+      sec.items.forEach(it => {
+        if (it.executionDate === today && !it.done) {
+          toAdd.push({ sec, item: it });
+        } else {
+          keep.push(it);
+        }
+      });
+      return { ...sec, items: keep };
+    });
+
+    if (toAdd.length > 0) {
+      toAdd.forEach(({ sec, item }) => {
+        const existing = sections.find(s => s.id === sec.id);
+        const newItem = { text: item.text, done: false, timeSpent: 0, timerStart: null, fromPowerUp: true };
+        if (existing) {
+          existing.items = [...existing.items, newItem];
+        } else {
+          sections = [...sections, { ...sec, items: [newItem] }];
+        }
+      });
+      save(LS_PU, updatedPU);
+      pu = updatedPU;
+    }
+
+    if (t || toAdd.length > 0) setTodaySections([...sections]);
+    if (d)  setDone(d);
+    setPowerUp(pu);
+    if (pr) setProjects(pr);
+    if (dt) setDate(dt);
+    setLoaded(true);
+  }, []);
+
+  const persistToday    = (v) => { setTodaySections(v); save(LS_TODAY, v); };
+  const persistProjects = (v) => { setProjects(v);      save(LS_PROJ,  v); };
+  const persistDone  = (v) => { setDone(v);          save(LS_DONE,  v); };
+  const persistPU    = (v) => { setPowerUp(v);        save(LS_PU,    v); };
+  const persistDate  = (v) => { setDate(v);           save(LS_DATE,  v); };
+
+  // Push completed tasks to Done tab
+  const pushCompleted = () => {
+    const completed = [];
+    const remaining = todaySections.map(sec => {
+      const doneItems = sec.items.filter(it => it.done);
+      const keepItems = sec.items.filter(it => !it.done);
+      doneItems.forEach(it => completed.push({
+        text: it.text, category: sec.label, emoji: sec.emoji,
+        color: sec.color, accent: sec.accent,
+        timeSpent: it.timeSpent || 0, pushedAt: date,
+      }));
+      return { ...sec, items: keepItems };
+    });
+    persistDone([...done, ...completed]);
+    persistToday(remaining);
+  };
+
+  // Today section ops
+  const updateSection = (si, fn) => {
+    persistToday(todaySections.map((s, i) => i === si ? fn(s) : s));
+  };
+  const addSection = () => {
+    if (!newSecName.trim()) return;
+    const idx = todaySections.length % SEC_COLORS.length;
+    const sec = { id:`s-${Date.now()}`, label:newSecName.trim(), emoji:EMOJIS[idx], color:SEC_COLORS[idx], accent:SEC_ACCENTS[idx], items:[] };
+    persistToday([...todaySections, sec]);
+    setNewSecName(""); setAddingSection(false);
+  };
+  const reorderItems = (si, from, to) => {
+    updateSection(si, s => { const items=[...s.items]; const [m]=items.splice(from,1); items.splice(to,0,m); return {...s,items}; });
+  };
+  const toggleTimer = (si, ii) => {
+    updateSection(si, sec => ({ ...sec, items: sec.items.map((it,i) => {
+      if (i!==ii) return it;
+      if (it.timerStart) { const e=Math.floor((Date.now()-it.timerStart)/1000); return {...it,timerStart:null,timeSpent:(it.timeSpent||0)+e}; }
+      return {...it, timerStart:Date.now()};
+    })}));
+  };
+  const addTime = (si, ii, mins) => {
+    updateSection(si, sec => ({ ...sec, items: sec.items.map((it,i) => i!==ii?it:{...it,timeSpent:(it.timeSpent||0)+(mins*60)}) }));
+  };
+
+  // PU ops
+  const togglePU = (si, ii) => {
+    persistPU(powerUp.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null}) }));
+  };
+  const deletePU = (si, ii) => {
+    persistPU(powerUp.map((s,i) => i!==si?s:{ ...s, items:s.items.filter((_,j)=>j!==ii) }));
+  };
+  const addPUItem = (si, text) => {
+    persistPU(powerUp.map((s,i) => i!==si?s:{ ...s, items:[...s.items,{text,done:false,completedAt:null,scheduledTo:null,deadline:null,timeSpent:0,timerStart:null}] }));
+  };
+  const setDeadlinePU = (si, ii, d) => {
+    persistPU(powerUp.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==ii?it:{...it,deadline:d}) }));
+  };
+  const setExecutionPU = (si, ii, d) => {
+    persistPU(powerUp.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==ii?it:{...it,executionDate:d}) }));
+  };
+
+  const addProjSection = () => {
+    if (!newProjectSecName.trim()) return;
+    const idx = projects.length % SEC_COLORS.length;
+    const sec = { id:`pr-${Date.now()}`, label:newProjectSecName.trim(), emoji:EMOJIS[idx], color:SEC_COLORS[idx], accent:SEC_ACCENTS[idx], items:[] };
+    persistProjects([...projects, sec]);
+    setNewProjectSecName(""); setAddingProjectSection(false);
+  };
+
+  const addPUSection = () => {
+    if (!newPUSecName.trim()) return;
+    const idx = powerUp.length % SEC_COLORS.length;
+    const sec = { id:`pu-${Date.now()}`, label:newPUSecName.trim(), emoji:EMOJIS[idx], color:SEC_COLORS[idx], accent:SEC_ACCENTS[idx], items:[] };
+    persistPU([...powerUp, sec]);
+    setNewPUSecName(""); setAddingPUSection(false);
+  };
+
+  const moveTodayItem = (fromSi, ii, toSi) => {
+    if (fromSi === toSi) return;
+    const item = todaySections[fromSi].items[ii];
+    const updated = todaySections.map((sec, s) => {
+      if (s === fromSi) return { ...sec, items: sec.items.filter((_,i) => i !== ii) };
+      if (s === toSi)   return { ...sec, items: [...sec.items, item] };
+      return sec;
+    });
+    persistToday(updated);
+  };
+
+  const moveCategoryPU = (fromSi, ii, toSi) => {
+    if (fromSi === toSi) return;
+    const item = powerUp[fromSi].items[ii];
+    const updated = powerUp.map((sec, s) => {
+      if (s === fromSi) return { ...sec, items: sec.items.filter((_,i) => i !== ii) };
+      if (s === toSi)   return { ...sec, items: [...sec.items, item] };
+      return sec;
+    });
+    persistPU(updated);
+  };
+
+  const executePU = (si, ii) => {
+    const sec  = powerUp[si];
+    const item = sec.items[ii];
+    // Add to Today under matching section
+    const newItem = { text: item.text, done: false, timeSpent: 0, timerStart: null, fromPowerUp: true };
+    let newSections = [...todaySections];
+    const existing = newSections.find(s => s.id === sec.id);
+    if (existing) {
+      existing.items = [...existing.items, newItem];
+    } else {
+      newSections = [...newSections, { ...sec, items: [newItem] }];
+    }
+    persistToday(newSections);
+    // Remove from PU
+    persistPU(powerUp.map((s,i) => i!==si ? s : { ...s, items: s.items.filter((_,j) => j!==ii) }));
+  };
+  const toggleTimerPU = (si, ii) => {
+    persistPU(powerUp.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>{
+      if(i!==ii) return it;
+      if(it.timerStart){const e=Math.floor((Date.now()-it.timerStart)/1000);return{...it,timerStart:null,timeSpent:(it.timeSpent||0)+e};}
+      return{...it,timerStart:Date.now()};
+    })}));
+  };
+  const addTimePU = (si, ii, mins) => {
+    persistPU(powerUp.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==ii?it:{...it,timeSpent:(it.timeSpent||0)+(mins*60)}) }));
+  };
+
+  if (!loaded) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontFamily:"'Georgia', serif", color:"#aaa", fontSize:"15px" }}>
+      Loading your planner…
+    </div>
+  );
+
+  const totalItems = todaySections.reduce((a,s)=>a+s.items.length,0);
+  const totalDone  = todaySections.reduce((a,s)=>a+s.items.filter(it=>it.done).length,0);
+  const hasDone    = totalDone > 0;
+
+  const dfPill = (label, val) => (
+    <button key={val} onClick={() => setDeadlineFilter(val)} style={{ background:deadlineFilter===val?"#2C2C2C":"rgba(0,0,0,0.06)", color:deadlineFilter===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:deadlineFilter===val?700:400, whiteSpace:"nowrap" }}>{label}</button>
+  );
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#F5F1EB", fontFamily:"'Georgia', serif" }}>
+
+      {/* header */}
+      <div style={{ background:"#2C2C2C", color:"#F5F1EB", padding:"20px 24px 0", position:"sticky", top:0, zIndex:20, boxShadow:"0 4px 20px rgba(0,0,0,0.2)" }}>
+        <div style={{ maxWidth:"980px", margin:"0 auto" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:"8px" }}>
+            <h1 style={{ margin:0, fontSize:"22px", fontWeight:700, letterSpacing:"-0.3px" }}>My Planner</h1>
+            <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+              <button onClick={() => setShowBackup(true)} style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"6px", color:"#F5F1EB", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:600 }}>⬇ Backup</button>
+              <button onClick={() => setShowRestore(true)} style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"6px", color:"#F5F1EB", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:600 }}>⬆ Restore</button>
+            </div>
+          </div>
+          {/* tabs */}
+          <div style={{ display:"flex", gap:"5px", marginTop:"14px", overflowX:"auto", paddingBottom:"0" }}>
+            {[["today","📅 Today"],["done","✅ Done"],["powerup","⚡ Power-Up"],["projects","🗂️ Projects"]].map(([k,label]) => (
+              <button key={k} onClick={() => setTab(k)} style={{ background:tab===k?"#F5F1EB":"transparent", color:tab===k?"#2C2C2C":"#F5F1EB", border:tab===k?"none":"1px solid rgba(255,255,255,0.2)", borderRadius:"8px 8px 0 0", padding:"7px 13px", fontSize:"12px", fontWeight:600, cursor:"pointer", fontFamily:"'Georgia', serif", whiteSpace:"nowrap", flexShrink:0, position:"relative" }}>
+                {label}
+                {k==="done" && done.length>0 && tab!=="done" && <span style={{ position:"absolute", top:"4px", right:"4px", width:"6px", height:"6px", borderRadius:"50%", background:"#5A9E62" }} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* content */}
+      <div style={{ maxWidth:"980px", margin:"22px auto 60px", padding:"0 18px" }}>
+
+        {tab === "today" && (
+          <>
+            {/* date row */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"16px", flexWrap:"wrap", gap:"8px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                {editingDate ? (
+                  <input type="date" value={date} autoFocus
+                    onChange={e => { persistDate(e.target.value); }}
+                    onBlur={() => setEditingDate(false)}
+                    style={{ border:"2px solid #2C2C2C", borderRadius:"8px", padding:"6px 10px", fontSize:"13px", fontFamily:"'Georgia', serif", outline:"none" }} />
+                ) : (
+                  <button onClick={() => setEditingDate(true)} style={{ background:"white", border:"2px solid rgba(0,0,0,0.1)", borderRadius:"8px", padding:"6px 12px", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:600, color:"#2C2C2C", cursor:"pointer" }}>
+                    📅 {fmtDate(date)} ✎
+                  </button>
+                )}
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)" }}>{totalDone}/{totalItems} done</span>
+              </div>
+              {hasDone && (
+                <button onClick={pushCompleted} style={{ background:"#5A9E62", border:"none", borderRadius:"8px", color:"white", padding:"8px 16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700 }}>
+                  ✅ Push Completed
+                </button>
+              )}
+            </div>
+
+            <div style={{ columns:"290px", columnGap:"16px" }}>
+              {todaySections.map((section, si) => (
+                <div key={section.id} style={{ marginBottom:"16px", breakInside:"avoid" }}>
+                  <SectionCard section={section} index={si} total={todaySections.length}
+                    onToggle={(i) => updateSection(si, s => ({...s, items:s.items.map((it,idx)=>idx===i?{...it,done:!it.done}:it)}))}
+                    onDelete={(i) => updateSection(si, s => ({...s, items:s.items.filter((_,idx)=>idx!==i)}))}
+                    onAddItem={(text) => updateSection(si, s => ({...s, items:[...s.items,{text,done:false,timeSpent:0,timerStart:null}]}))}
+                    onReorder={(from, to) => reorderItems(si, from, to)}
+                    onToggleTimer={(i) => toggleTimer(si, i)}
+                    onAddTime={(i, m) => addTime(si, i, m)}
+                    onDeleteSection={() => persistToday(todaySections.filter((_,i) => i !== si))}
+                    onRenameSection={(name) => updateSection(si, s => ({...s, label: name}))}
+                    onMoveUp={() => { const t=[...todaySections]; const [m]=t.splice(si,1); t.splice(si-1,0,m); persistToday(t); }}
+                    onMoveDown={() => { const t=[...todaySections]; const [m]=t.splice(si,1); t.splice(si+1,0,m); persistToday(t); }}
+                    onMoveCategory={(ii) => setMovingItem({ si, ii })} />
+                </div>
+              ))}
+              <div style={{ marginBottom:"16px", breakInside:"avoid" }}>
+                {addingSection ? (
+                  <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px", boxShadow:"0 2px 8px rgba(0,0,0,0.06)" }}>
+                    <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
+                    <div style={{ display:"flex", gap:"8px" }}>
+                      <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)}
+                        onKeyDown={e => { if(e.key==="Enter") addSection(); if(e.key==="Escape") setAddingSection(false); }}
+                        placeholder="e.g. Prayer, Appointments…"
+                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                      <button onClick={addSection} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingSection(true)}
+                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background="rgba(0,0,0,0.06)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.18)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background="rgba(0,0,0,0.03)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.1)"; }}>
+                    + Add section
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === "done" && <DoneTab done={done} />}
+
+        {tab === "powerup" && (
+          <>
+            <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", marginBottom:"16px" }}>
+              {dfPill("All","all")}{dfPill("Has deadline","hasDeadline")}{dfPill("Overdue","overdue")}{dfPill("No deadline","noDeadline")}
+            </div>
+            <div style={{ columns:"290px", columnGap:"16px" }}>
+              {powerUp.map((sec, si) => (
+                <div key={sec.id} style={{ marginBottom:"16px", breakInside:"avoid" }}>
+                  <PUSectionCard section={sec} index={si} total={powerUp.length} deadlineFilter={deadlineFilter}
+                    onToggle={(ii) => togglePU(si,ii)}
+                    onDelete={(ii) => deletePU(si,ii)}
+                    onAddItem={(text) => addPUItem(si,text)}
+                    onOpenActions={(ii) => setPuActions({si,ii,item:powerUp[si].items[ii],section:powerUp[si]})}
+                    onToggleTimer={(ii) => toggleTimerPU(si,ii)}
+                    onAddTime={(ii,m) => addTimePU(si,ii,m)}
+                    onExecute={(ii) => executePU(si,ii)}
+                    onMoveUp={() => { const p=[...powerUp]; const [m]=p.splice(si,1); p.splice(si-1,0,m); persistPU(p); }}
+                    onMoveDown={() => { const p=[...powerUp]; const [m]=p.splice(si,1); p.splice(si+1,0,m); persistPU(p); }}
+                    onRename={(name) => persistPU(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onDeleteSection={() => persistPU(powerUp.filter((_,i) => i!==si))}
+                    onReorderItems={(items) => persistPU(powerUp.map((s,i) => i!==si?s:{...s,items}))} />
+                </div>
+              ))}
+              {/* Add PU section */}
+              <div style={{ marginBottom:"16px", breakInside:"avoid" }}>
+                {addingPUSection ? (
+                  <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px", boxShadow:"0 2px 8px rgba(0,0,0,0.06)" }}>
+                    <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>New category name</p>
+                    <div style={{ display:"flex", gap:"8px" }}>
+                      <input autoFocus value={newPUSecName} onChange={e => setNewPUSecName(e.target.value)}
+                        onKeyDown={e => { if(e.key==="Enter") addPUSection(); if(e.key==="Escape") setAddingPUSection(false); }}
+                        placeholder="e.g. Side Projects, Learning…"
+                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                      <button onClick={addPUSection} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                      <button onClick={() => setAddingPUSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingPUSection(true)}
+                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background="rgba(0,0,0,0.06)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.18)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background="rgba(0,0,0,0.03)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.1)"; }}>
+                    + Add category
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+      </div>
+
+      {/* Modals */}
+      {movingItem && (
+        <MoveTodayCategoryModal
+          item={todaySections[movingItem.si].items[movingItem.ii]}
+          fromSi={movingItem.si}
+          sections={todaySections}
+          onMove={(toSi) => moveTodayItem(movingItem.si, movingItem.ii, toSi)}
+          onClose={() => setMovingItem(null)} />
+      )}
+      {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} onClose={() => setShowBackup(false)} />}
+      {showRestore && <RestoreModal onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onClose={() => setShowRestore(false)} />}
+      {puActions   && <PUActionsModal item={puActions.item} section={puActions.section}
+        categories={powerUp}
+        onSetDeadline={(d) => setDeadlinePU(puActions.si, puActions.ii, d)}
+        onSetExecution={(d) => setExecutionPU(puActions.si, puActions.ii, d)}
+        onMoveCategory={(toSi) => moveCategoryPU(puActions.si, puActions.ii, toSi)}
+        onClose={() => setPuActions(null)} />}
+    </div>
+  );
+}
+
+function App() {
+  const [key, setKey] = useState(0);
+  return <Planner key={key} onReset={() => setKey(k => k+1)} />;
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
