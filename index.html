@@ -149,7 +149,7 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
 function SectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onReorder, onToggleTimer, onAddTime, onDeleteSection, onRenameSection, onMoveUp, onMoveDown, onMoveCategory }) {
   const [adding,    setAdding]    = useState(false);
   const [txt,       setTxt]       = useState("");
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [editing,   setEditing]   = useState(false);
   const [editName,  setEditName]  = useState(section.label);
   const [showMenu,  setShowMenu]  = useState(false);
@@ -313,7 +313,7 @@ function PUTaskItem({ item, index, total, accent, onToggle, onDelete, onOpenActi
 // ─── PU SectionCard ───────────────────────────────────────────────────────────
 function PUSectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onOpenActions, onToggleTimer, onAddTime, onExecute, onMoveUp, onMoveDown, onRename, onDeleteSection, onReorderItems, deadlineFilter }) {
   const [adding,    setAdding]    = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [editing,   setEditing]   = useState(false);
   const [editName,  setEditName]  = useState(section.label);
   const [showMenu,  setShowMenu]  = useState(false);
