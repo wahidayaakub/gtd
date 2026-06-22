@@ -321,9 +321,10 @@ function PUSectionCard({ section, index, total: totalSections, onToggle, onDelet
   const submit = () => { if (txt.trim()) { onAddItem(txt.trim()); setTxt(""); } setAdding(false); };
 
   const visibleItems = deadlineFilter === "all" ? section.items
-    : deadlineFilter === "hasDeadline" ? section.items.filter(it => it.deadline)
-    : deadlineFilter === "overdue"     ? section.items.filter(it => it.deadline && it.deadline < todayStr() && !it.done)
-    : deadlineFilter === "noDeadline"  ? section.items.filter(it => !it.deadline)
+    : deadlineFilter === "hasDeadline"  ? section.items.filter(it => it.deadline != null && it.deadline !== "")
+    : deadlineFilter === "overdue"      ? section.items.filter(it => it.deadline && it.deadline < todayStr() && !it.done)
+    : deadlineFilter === "hasExecDate"  ? section.items.filter(it => it.executionDate != null && it.executionDate !== "")
+    : deadlineFilter === "noDeadline"   ? section.items.filter(it => !it.deadline || it.deadline === "")
     : section.items;
 
   if (visibleItems.length === 0 && deadlineFilter !== "all") return null;
@@ -1050,7 +1051,7 @@ function Planner({ onReset }) {
         {tab === "powerup" && (
           <>
             <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", marginBottom:"16px" }}>
-              {dfPill("All","all")}{dfPill("Has deadline","hasDeadline")}{dfPill("Overdue","overdue")}{dfPill("No deadline","noDeadline")}
+              {dfPill("All","all")}{dfPill("Has deadline","hasDeadline")}{dfPill("Overdue","overdue")}{dfPill("No deadline","noDeadline")}{dfPill("Has exec date","hasExecDate")}
             </div>
             <div style={{ columns:"290px", columnGap:"16px" }}>
               {powerUp.map((sec, si) => (
@@ -1106,7 +1107,7 @@ function Planner({ onReset }) {
                     onToggle={(ii) => persistProjects(projects.map((s,i) => i!==si?s:{ ...s, items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null}) }))}
                     onDelete={(ii) => persistProjects(projects.map((s,i) => i!==si?s:{ ...s, items:s.items.filter((_,j)=>j!==ii) }))}
                     onAddItem={(text) => persistProjects(projects.map((s,i) => i!==si?s:{ ...s, items:[...s.items,{text,done:false,completedAt:null,scheduledTo:null,deadline:null,timeSpent:0,timerStart:null}] }))}
-                    onOpenActions={(ii) => setPuActions({si,ii,item:projects[si].items[ii],section:projects[si]})}
+                    onOpenActions={(ii) => setPuActions({si,ii,item:projects[si].items[ii],section:projects[si],isProject:true})}
                     onToggleTimer={(ii) => persistProjects(projects.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>{ if(i!==ii) return it; if(it.timerStart){const e=Math.floor((Date.now()-it.timerStart)/1000);return{...it,timerStart:null,timeSpent:(it.timeSpent||0)+e};} return{...it,timerStart:Date.now()}; })}))}
                     onAddTime={(ii,m) => persistProjects(projects.map((sec,s) => s!==si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==ii?it:{...it,timeSpent:(it.timeSpent||0)+(m*60)}) }))}
                     onExecute={(ii) => {
@@ -1166,10 +1167,33 @@ function Planner({ onReset }) {
       {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} onClose={() => setShowBackup(false)} />}
       {showRestore && <RestoreModal onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onClose={() => setShowRestore(false)} />}
       {puActions   && <PUActionsModal item={puActions.item} section={puActions.section}
-        categories={powerUp}
-        onSetDeadline={(d) => setDeadlinePU(puActions.si, puActions.ii, d)}
-        onSetExecution={(d) => setExecutionPU(puActions.si, puActions.ii, d)}
-        onMoveCategory={(toSi) => moveCategoryPU(puActions.si, puActions.ii, toSi)}
+        categories={puActions.isProject ? projects : powerUp}
+        onSetDeadline={(d) => {
+          if (puActions.isProject) {
+            persistProjects(projects.map((sec,s) => s!==puActions.si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==puActions.ii?it:{...it,deadline:d}) }));
+          } else {
+            setDeadlinePU(puActions.si, puActions.ii, d);
+          }
+        }}
+        onSetExecution={(d) => {
+          if (puActions.isProject) {
+            persistProjects(projects.map((sec,s) => s!==puActions.si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==puActions.ii?it:{...it,executionDate:d}) }));
+          } else {
+            setExecutionPU(puActions.si, puActions.ii, d);
+          }
+        }}
+        onMoveCategory={(toSi) => {
+          if (puActions.isProject) {
+            const item = projects[puActions.si].items[puActions.ii];
+            persistProjects(projects.map((s,i) => {
+              if (i === puActions.si) return { ...s, items: s.items.filter((_,j) => j !== puActions.ii) };
+              if (i === toSi) return { ...s, items: [...s.items, item] };
+              return s;
+            }));
+          } else {
+            moveCategoryPU(puActions.si, puActions.ii, toSi);
+          }
+        }}
         onClose={() => setPuActions(null)} />}
     </div>
   );
