@@ -498,8 +498,8 @@ function Planner({ onReset }) {
     if (collapsedSections.hasOwnProperty(key)) return collapsedSections[key];
     return true; // default collapsed
   };
-  const [doneSort, setDoneSort] = useState("date"); // "date" | "category"
-  const [futureSort, setFutureSort] = useState("deadline"); // "deadline" | "executionDate"
+  const [doneSort, setDoneSort] = useState("all"); // "all" | "date" | "category"
+  const [futureSort, setFutureSort] = useState("all"); // "all" | "deadline" | "executionDate"
 
   const persistToday = (s) => { setTodaySections(s); save(LS_TODAY, s); };
   const persistDone = (d) => { setDone(d); save(LS_DONE, d); };
@@ -579,7 +579,7 @@ function Planner({ onReset }) {
       {/* content - Today */}
       {tab === "today" && (
         <>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(350px, 1fr))", gap:"16px", marginBottom:"24px" }}>
             {todaySections.map((section, si) => {
               const isCollapsed = getCollapsedState(`today-${si}`);
               return (
@@ -650,13 +650,14 @@ function Planner({ onReset }) {
       {/* content - Future */}
       {tab === "future" && (
         <>
-          {/* sort options */}
+          {/* filter options */}
           <div style={{ marginBottom:"16px", display:"flex", gap:"8px" }}>
-            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Sort:</span>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
+            <button onClick={() => setFutureSort("all")} style={{ background:futureSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
             <button onClick={() => setFutureSort("deadline")} style={{ background:futureSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
             <button onClick={() => setFutureSort("executionDate")} style={{ background:futureSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(350px, 1fr))", gap:"16px", marginBottom:"24px" }}>
             {powerUp.map((section, si) => {
             const isCollapsed = getCollapsedState(`future-${si}`);
             // Sort items based on selected sort
@@ -752,7 +753,7 @@ function Planner({ onReset }) {
       {/* content - Projects */}
       {tab === "projects" && (
         <>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(350px, 1fr))", gap:"16px", marginBottom:"24px" }}>
             {projects.map((section, si) => {
             const isCollapsed = getCollapsedState(`projects-${si}`);
             return (
@@ -829,15 +830,24 @@ function Planner({ onReset }) {
       {/* content - Done */}
       {tab === "done" && (
         <div>
-          {/* sort options */}
+          {/* filter options */}
           <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center" }}>
-            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Sort:</span>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
+            <button onClick={() => setDoneSort("all")} style={{ background:doneSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
             <button onClick={() => setDoneSort("date")} style={{ background:doneSort==="date"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Date</button>
             <button onClick={() => setDoneSort("category")} style={{ background:doneSort==="category"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📂 Category</button>
           </div>
           
           <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.45)" }}>Completed tasks ({done.length})</p>
-          {doneSort === "date" ? (
+          {doneSort === "all" ? (
+            // Show all tasks as simple list
+            done.map((item, ii) => (
+              <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                {item.text}
+                {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+              </div>
+            ))
+          ) : doneSort === "date" ? (
             // Sort by completion date
             [...done].sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).map((item, ii) => (
               <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
