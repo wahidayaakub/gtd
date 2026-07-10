@@ -88,11 +88,11 @@ const POWERUP_SEED = [];
 const buildPowerUp = () => POWERUP_SEED.map(s => ({ ...s, items: s.items.map(text => ({ text, done:false, completedAt:null, scheduledTo:null, deadline:null, timeSpent:0, timerStart:null, recurs:"none", urgent:false, executionDate:null })) }));
 
 // ─── storage ──────────────────────────────────────────────────────────────
-const LS_TODAY = "wahida-today-v6";
-const LS_PROJ  = "wahida-projects-v6";
-const LS_DONE  = "wahida-done-v6";
-const LS_PU    = "wahida-powerup-v6";
-const LS_DATE  = "wahida-date-v6";
+const LS_TODAY = "wahida-today-v6-shared";
+const LS_PROJ  = "wahida-projects-v6-shared";
+const LS_DONE  = "wahida-done-v6-shared";
+const LS_PU    = "wahida-powerup-v6-shared";
+const LS_DATE  = "wahida-date-v6-shared";
 
 const load = (key, fallback) => { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; } };
 const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
