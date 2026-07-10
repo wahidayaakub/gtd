@@ -593,12 +593,12 @@ function Planner({ onReset }) {
       {/* content - Today */}
       {tab === "today" && (
         <>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:"16px", marginBottom:"24px" }}>
             {todaySections.map((section, si) => {
               const isCollapsed = getCollapsedState(`today-${si}`);
               return (
               <div key={si} style={{ breakInside:"avoid" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)" }}>
+              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"120px", display:"flex", flexDirection:"column" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -628,7 +628,7 @@ function Planner({ onReset }) {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
                     onDragEnd={() => setDraggedTask(null)}
-                    onToggle={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
+                    onToggle={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null,section:s.id})}))}
                     onDelete={() => persistToday(todaySections.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
                     onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
@@ -678,7 +678,7 @@ function Planner({ onReset }) {
               <button onClick={() => { const completedTasks = []; powerUp.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push(item); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistPowerUp(powerUp.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600, marginLeft:"auto" }}>✓ Clear Completed</button>
             )}
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:"16px", marginBottom:"24px" }}>
             {powerUp.map((section, si) => {
             const isCollapsed = getCollapsedState(`future-${si}`);
             // Sort items based on selected sort
@@ -696,7 +696,7 @@ function Planner({ onReset }) {
             
             return (
             <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)" }}>
+              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"120px", display:"flex", flexDirection:"column" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -784,12 +784,12 @@ function Planner({ onReset }) {
               <button onClick={() => { const completedTasks = []; projects.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push(item); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistProjects(projects.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
             </div>
           )}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:"16px", marginBottom:"24px" }}>
             {projects.map((section, si) => {
             const isCollapsed = getCollapsedState(`projects-${si}`);
             return (
             <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)" }}>
+              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"120px", display:"flex", flexDirection:"column" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -900,57 +900,90 @@ function Planner({ onReset }) {
           )}
           
           {doneSort === "category" && (
-            // Sort by category (from Future categories) + show orphaned items
             <div>
-              {powerUp.map((category, categoryIndex) => {
-                const categoryItems = done.filter(item => item.section === category.id);
-                if (categoryItems.length === 0) return null;
-                const canMoveUp = categoryIndex > 0;
-                const canMoveDown = categoryIndex < powerUp.length - 1;
+              {(() => {
+                const allCategories = [...todaySections, ...powerUp, ...projects];
+                const allCategoryIds = new Set(allCategories.map(c => c.id));
                 return (
-                  <div key={category.id} style={{ marginBottom:"12px" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>
-                      <div style={{ display:"flex", gap:"2px" }}>
-                        <button onClick={() => { if(canMoveUp) { const newSections=[...powerUp]; [newSections[categoryIndex],newSections[categoryIndex-1]]=[newSections[categoryIndex-1],newSections[categoryIndex]]; persistPowerUp(newSections); } }} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"10px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
-                        <button onClick={() => { if(canMoveDown) { const newSections=[...powerUp]; [newSections[categoryIndex],newSections[categoryIndex+1]]=[newSections[categoryIndex+1],newSections[categoryIndex]]; persistPowerUp(newSections); } }} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"10px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
+                  <>
+                    {allCategories.map((category, categoryIndex) => {
+                      const categoryItems = done.filter(item => item.section === category.id);
+                      if (categoryItems.length === 0) return null;
+                      
+                      const getSource = (id) => {
+                        if (id.startsWith('today-') || id === 'welcome') return 'today';
+                        if (id.startsWith('future-')) return 'future';
+                        if (id.startsWith('proj-')) return 'projects';
+                        return null;
+                      };
+                      const source = getSource(category.id);
+                      const sourceList = source === 'today' ? todaySections : source === 'future' ? powerUp : projects;
+                      const sourceIndex = sourceList.findIndex(c => c.id === category.id);
+                      const canMoveUp = sourceIndex > 0;
+                      const canMoveDown = sourceIndex < sourceList.length - 1;
+                      
+                      const handleMoveUp = () => {
+                        if (!canMoveUp) return;
+                        const newList = [...sourceList];
+                        [newList[sourceIndex], newList[sourceIndex - 1]] = [newList[sourceIndex - 1], newList[sourceIndex]];
+                        if (source === 'today') persistToday(newList);
+                        else if (source === 'future') persistPowerUp(newList);
+                        else if (source === 'projects') persistProjects(newList);
+                      };
+                      const handleMoveDown = () => {
+                        if (!canMoveDown) return;
+                        const newList = [...sourceList];
+                        [newList[sourceIndex], newList[sourceIndex + 1]] = [newList[sourceIndex + 1], newList[sourceIndex]];
+                        if (source === 'today') persistToday(newList);
+                        else if (source === 'future') persistPowerUp(newList);
+                        else if (source === 'projects') persistProjects(newList);
+                      };
+                      
+                      return (
+                        <div key={category.id} style={{ marginBottom:"12px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>
+                            <div style={{ display:"flex", gap:"2px" }}>
+                              <button onClick={handleMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"10px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
+                              <button onClick={handleMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"10px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
+                            </div>
+                            <span>{category.emoji} {category.label}</span>
+                          </div>
+                          {categoryItems.map((item, ii) => (
+                            <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                              {item.text}
+                              {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    
+                    {done.filter(item => item.section === null).length > 0 && (
+                      <div style={{ marginBottom:"12px" }}>
+                        <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>📝 Uncategorized</div>
+                        {done.filter(item => item.section === null).map((item, ii) => (
+                          <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                            {item.text}
+                            {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+                          </div>
+                        ))}
                       </div>
-                      <span>{category.emoji} {category.label}</span>
-                    </div>
-                    {categoryItems.map((item, ii) => (
-                      <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                        {item.text}
-                        {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+                    )}
+                    
+                    {done.filter(item => item.section !== null && !allCategoryIds.has(item.section)).length > 0 && (
+                      <div style={{ marginBottom:"12px", opacity:0.6 }}>
+                        <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>🗑️ Deleted Categories</div>
+                        {done.filter(item => item.section !== null && !allCategoryIds.has(item.section)).map((item, ii) => (
+                          <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                            {item.text}
+                            {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 );
-              })}
-              
-              {/* Uncategorized items (old tasks without section ID) */}
-              {done.filter(item => item.section === null).length > 0 && (
-                <div style={{ marginBottom:"12px" }}>
-                  <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>📝 Uncategorized (Today tasks)</div>
-                  {done.filter(item => item.section === null).map((item, ii) => (
-                    <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                      {item.text}
-                      {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Deleted Categories (orphaned items) */}
-              {done.filter(item => item.section !== null && !powerUp.some(cat => cat.id === item.section)).length > 0 && (
-                <div style={{ marginBottom:"12px", opacity:0.6 }}>
-                  <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>🗑️ Deleted Categories</div>
-                  {done.filter(item => item.section !== null && !powerUp.some(cat => cat.id === item.section)).map((item, ii) => (
-                    <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                      {item.text}
-                      {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
+              })()}
             </div>
           )}
         </div>
