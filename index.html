@@ -123,7 +123,7 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
   return (
     <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px", paddingBottom:"4px" }}>
       <button onClick={onToggleCollapse} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"11px", color:"rgba(0,0,0,0.3)", lineHeight:1, padding:"0 4px" }}>
-        {isCollapsed ? "▶" : "▼"}
+        {isCollapsed ? "▶" : "↓"}
       </button>
       
       {showEmojiInput ? (
@@ -144,8 +144,8 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
       
       {/* move up/down */}
       <div style={{ display:"flex", gap:"2px" }}>
-        <button onClick={onMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"12px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
-        <button onClick={onMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"12px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
+        <button onClick={onMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"12px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>↑</button>
+        <button onClick={onMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"12px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>↓</button>
       </div>
       
       {/* color picker */}
@@ -212,10 +212,10 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
         {/* drag handle */}
         <div className="drag-handle" style={{ display:"flex", flexDirection:"column", flexShrink:0, fontSize:"10px", color:"rgba(0,0,0,0.15)" }}>⋮⋮</div>
         
-        {/* ▲▼ */}
+        {/* ↑↓ */}
         <div style={{ display:"flex", flexDirection:"column", flexShrink:0 }}>
-          <button onClick={onMoveUp} disabled={index===0} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▲</button>
-          <button onClick={onMoveDown} disabled={index===total-1} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===total-1?"default":"pointer", fontSize:"8px", color:index===total-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▼</button>
+          <button onClick={onMoveUp} disabled={index===0} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>↑</button>
+          <button onClick={onMoveDown} disabled={index===total-1} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===total-1?"default":"pointer", fontSize:"8px", color:index===total-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>↓</button>
         </div>
         
         {/* checkbox */}
@@ -504,6 +504,7 @@ function Planner({ onReset }) {
   const [puActions, setPuActions] = useState(null);
   const [draggedTask, setDraggedTask] = useState(null);
   const [collapsedSections, setCollapsedSections] = useState({}); // Collapsed by default via getCollapsedState
+  const [draggedSection, setDraggedSection] = useState(null); // For dragging sections
   
   // Initialize collapsed state - check if key exists, default to true (COLLAPSED by default)
   const getCollapsedState = (key) => {
@@ -595,8 +596,8 @@ function Planner({ onReset }) {
             {todaySections.map((section, si) => {
               const isCollapsed = getCollapsedState(`today-${si}`);
               return (
-              <div key={si} style={{ breakInside:"avoid" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"120px", display:"flex", flexDirection:"column" }}>
+              <div key={si} style={{ breakInside:"avoid" }} draggable onDragStart={(e) => { setDraggedSection({si, tab:"today"}); e.dataTransfer.effectAllowed="move"; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if(draggedSection?.tab==="today" && draggedSection?.si!==si) { const newSections=[...todaySections]; const [m]=newSections.splice(draggedSection.si,1); newSections.splice(si,0,m); persistToday(newSections); } setDraggedSection(null); }} onDragEnd={() => setDraggedSection(null)} style={{ opacity: draggedSection?.si===si && draggedSection?.tab==="today" ? 0.5 : 1, cursor:"grab" }}>
+              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"70px" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -693,8 +694,8 @@ function Planner({ onReset }) {
                 });
             
             return (
-            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"120px", display:"flex", flexDirection:"column" }}>
+            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }} draggable onDragStart={(e) => { setDraggedSection({si, tab:"future"}); e.dataTransfer.effectAllowed="move"; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if(draggedSection?.tab==="future" && draggedSection?.si!==si) { const newSections=[...powerUp]; const [m]=newSections.splice(draggedSection.si,1); newSections.splice(si,0,m); persistPowerUp(newSections); } setDraggedSection(null); }} onDragEnd={() => setDraggedSection(null)} style={{ opacity: draggedSection?.si===si && draggedSection?.tab==="future" ? 0.5 : 1, cursor:"grab" }}>
+              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"70px" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -786,8 +787,8 @@ function Planner({ onReset }) {
             {projects.map((section, si) => {
             const isCollapsed = getCollapsedState(`projects-${si}`);
             return (
-            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"120px", display:"flex", flexDirection:"column" }}>
+            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }} draggable onDragStart={(e) => { setDraggedSection({si, tab:"projects"}); e.dataTransfer.effectAllowed="move"; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if(draggedSection?.tab==="projects" && draggedSection?.si!==si) { const newSections=[...projects]; const [m]=newSections.splice(draggedSection.si,1); newSections.splice(si,0,m); persistProjects(newSections); } setDraggedSection(null); }} onDragEnd={() => setDraggedSection(null)} style={{ opacity: draggedSection?.si===si && draggedSection?.tab==="projects" ? 0.5 : 1, cursor:"grab" }}>
+              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"70px" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -941,8 +942,8 @@ function Planner({ onReset }) {
                         <div key={category.id} style={{ marginBottom:"12px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>
                             <div style={{ display:"flex", gap:"2px" }}>
-                              <button onClick={handleMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"10px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
-                              <button onClick={handleMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"10px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
+                              <button onClick={handleMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"10px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>↑</button>
+                              <button onClick={handleMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"10px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>↓</button>
                             </div>
                             <span>{category.emoji} {category.label}</span>
                           </div>
