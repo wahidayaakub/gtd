@@ -534,7 +534,7 @@ function Planner({ onReset }) {
           <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ padding:"8px", border:"1px solid rgba(0,0,0,0.2)", borderRadius:"6px", fontSize:"13px" }} />
         </div>
         <div style={{ display:"flex", gap:"8px" }}>
-          {tab === "today" && (
+          {tab === "today" && todaySections.some(s => s.items.some(it => it.done)) && (
             <button onClick={() => {
               const completedTasks = [];
               todaySections.forEach(section => {
@@ -657,96 +657,73 @@ function Planner({ onReset }) {
             <button onClick={() => setFutureSort("deadline")} style={{ background:futureSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
             <button onClick={() => setFutureSort("executionDate")} style={{ background:futureSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(350px, 1fr))", gap:"16px", marginBottom:"24px" }}>
-            {powerUp.map((section, si) => {
-            const isCollapsed = getCollapsedState(`future-${si}`);
-            // Sort items based on selected sort
-            const sortedItems = futureSort === "deadline" 
-              ? [...section.items].sort((a,b) => {
-                  const aDate = a.deadline || "9999-12-31";
-                  const bDate = b.deadline || "9999-12-31";
-                  return aDate.localeCompare(bDate);
-                })
-              : [...section.items].sort((a,b) => {
-                  const aDate = a.executionDate || "9999-12-31";
-                  const bDate = b.executionDate || "9999-12-31";
-                  return aDate.localeCompare(bDate);
-                });
-            
-            return (
-            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)" }}>
-                {/* section header */}
-                <SectionHeader
-                  section={section}
-                  si={si}
-                  isCollapsed={isCollapsed}
-                  onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`future-${si}`]: !isCollapsed})}
-                  onRename={(name) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
-                  onSetEmoji={(emoji) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,emoji}))}
-                  onSetColor={(color) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
-                  onDelete={() => persistPowerUp(powerUp.filter((_,i) => i!==si))}
-                />
-                
-                {/* items - sorted, only show if not collapsed */}
-                {!isCollapsed && sortedItems.map((item, ii) => {
-                  // Find the original index of this item in the unsorted array
-                  const origIi = section.items.findIndex(it => 
-                    it.text === item.text && it.timeSpent === item.timeSpent && it.done === item.done
-                  );
-                  return (
-                  <TaskItem
-                    key={origIi}
-                    item={item}
-                    index={origIi}
-                    total={section.items.length}
-                    accent={section.accent}
-                    isDragging={draggedTask?.si===si && draggedTask?.ii===origIi}
-                    onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
-                    onDragEnd={() => setDraggedTask(null)}
-                    onToggle={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
-                    onDelete={() => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==origIi)}))}
-                    onMoveUp={() => { if(origIi>0) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi-1]]=[newItems[origIi-1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onMoveDown={() => { if(origIi<section.items.length-1) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi+1]]=[newItems[origIi+1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timerStart:it.timerStart?null:Date.now()})}))}
-                    onAddTime={(secs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
-                    onMoveCategory={() => setPuActions({si,ii:origIi,item:section.items[origIi],section,isProject:false})}
-                    onEditText={(newText) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,text:newText})}))}
-                    onEditRecurs={(recurs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,recurs})}))}
-                    onToggleUrgent={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,urgent:!it.urgent})}))}
-                    onSetDeadline={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,deadline:d})}))}
-                    onSetExecutionDate={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,executionDate:d})}))}
-                    onExecuteToday={() => {
-                      const item = section.items[origIi];
-                      persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==origIi)}));
-                      persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));
-                    }}
-                  />
-                  );
-                })}
-              </div>
-            </div>
-            );
-          })}
-          </div>
           
-          {/* add section for Future */}
-          <div style={{ marginBottom:"16px" }}>
-            {addingSection ? (
-              <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
-                <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
-                <div style={{ display:"flex", gap:"8px" }}>
-                  <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. Read Later, Learn…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
-                  <button onClick={() => { if(newSecName) persistPowerUp([...powerUp, { id:`future-${Date.now()}`, label:newSecName, emoji:"⭐", color:"#F5EDD3", accent:"#C4B83A", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
-                  <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+          {futureSort === "all" ? (
+            // Show by categories
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(350px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+              {powerUp.map((section, si) => {
+                const isCollapsed = getCollapsedState(`future-${si}`);
+                return (
+                <div key={si}>
+                  <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)" }}>
+                    <SectionHeader
+                      section={section}
+                      si={si}
+                      isCollapsed={isCollapsed}
+                      onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`future-${si}`]: !isCollapsed})}
+                      onRename={(name) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
+                      onSetEmoji={(emoji) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,emoji}))}
+                      onSetColor={(color) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
+                      onDelete={() => persistPowerUp(powerUp.filter((_,i) => i!==si))}
+                    />
+                    {!isCollapsed && section.items.map((item, ii) => (
+                      <TaskItem key={ii} item={item} index={ii} total={section.items.length} accent={section.accent} isDragging={draggedTask?.si===si && draggedTask?.ii===ii} onDragStart={(e,idx)=>{setDraggedTask({si,ii:idx});e.dataTransfer.effectAllowed="move";}} onDragOver={(e)=>e.preventDefault()} onDrop={(e,idx)=>{e.preventDefault();if(draggedTask?.si===si && draggedTask?.ii!==idx){const newItems=[...section.items];const [m]=newItems.splice(draggedTask.ii,1);newItems.splice(idx,0,m);persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems}));}setDraggedTask(null);}} onDragEnd={()=>setDraggedTask(null)} onToggle={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))} onDelete={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))} onMoveUp={()=>{if(ii>0){const newItems=[...section.items];[newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]];persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems}));}}} onMoveDown={()=>{if(ii<section.items.length-1){const newItems=[...section.items];[newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]];persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems}));}}} onToggleTimer={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now()})}))} onAddTime={(secs)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))} onMoveCategory={()=>setPuActions({si,ii,item:section.items[ii],section,isProject:false})} onEditText={(newText)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))} onEditRecurs={(recurs)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))} onToggleUrgent={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))} onSetDeadline={(d)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))} onSetExecutionDate={(d)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))} onExecuteToday={()=>{const item=section.items[ii];persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));}} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ Add section</button>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            // Flat list sorted by deadline or execution
+            <div style={{ display:"flex", flexDirection:"column", gap:"8px", marginBottom:"24px" }}>
+              {(() => {
+                const allTasks = [];
+                powerUp.forEach((section, si) => {
+                  section.items.forEach((item, ii) => {
+                    allTasks.push({item,si,ii,sectionLabel:section.label,sectionEmoji:section.emoji,sectionAccent:section.accent});
+                  });
+                });
+                const sorted = allTasks.sort((a,b) => {
+                  if(futureSort==="deadline"){const aDate=a.item.deadline||"9999-12-31";const bDate=b.item.deadline||"9999-12-31";return aDate.localeCompare(bDate);}else{const aDate=a.item.executionDate||"9999-12-31";const bDate=b.item.executionDate||"9999-12-31";return aDate.localeCompare(bDate);}
+                });
+                return sorted.map(({item,si,ii,sectionLabel,sectionEmoji,sectionAccent},idx)=>(
+                  <div key={`${si}-${ii}`} style={{padding:"12px",background:"rgba(0,0,0,0.03)",borderRadius:"8px",borderLeft:`4px solid ${sectionAccent}`}}>
+                    <div style={{fontSize:"11px",color:"rgba(0,0,0,0.4)",marginBottom:"6px",fontWeight:600}}>{sectionEmoji} {sectionLabel}</div>
+                    <TaskItem item={item} index={idx} total={sorted.length} accent={sectionAccent} isDragging={false} onDragStart={()=>{}} onDragOver={()=>{}} onDrop={()=>{}} onDragEnd={()=>{}} onToggle={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))} onDelete={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))} onMoveUp={()=>{}} onMoveDown={()=>{}} onToggleTimer={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now()})}))} onAddTime={(secs)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))} onMoveCategory={()=>setPuActions({si,ii,item:powerUp[si].items[ii],section:powerUp[si],isProject:false})} onEditText={(newText)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))} onEditRecurs={(recurs)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))} onToggleUrgent={()=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))} onSetDeadline={(d)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))} onSetExecutionDate={(d)=>persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))} onExecuteToday={()=>{const task=powerUp[si].items[ii];persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,task]}:s));}} />
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+          
+          {/* add section for Future - only in "All" mode */}
+          {futureSort === "all" && (
+            <div style={{ marginBottom:"16px" }}>
+              {addingSection ? (
+                <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
+                  <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. Read Later, Learn…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                    <button onClick={() => { if(newSecName) persistPowerUp([...powerUp, { id:`future-${Date.now()}`, label:newSecName, emoji:"⭐", color:"#F5EDD3", accent:"#C4B83A", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                    <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ Add section</button>
+              )}
+            </div>
+          )}
         </>
       )}
 
