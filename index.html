@@ -77,9 +77,7 @@ const COLOR_GROUPS = {
 // ─── seed ─────────────────────────────────────────────────────────────────────
 const mk = (arr) => arr.map(text => ({ text, done: false, timeSpent: 0, timerStart: null, recurs: "none", urgent: false, deadline: null, completedAt: null, executionDate: null, scheduledTo: null }));
 
-const SEED_TODAY = [
-  { id:"welcome", label:"Getting Started", emoji:"👋", color:"#F0E6D3", accent:"#C4823A", items: mk(["Tap the circle to complete a task","Tap ⋯ to rename, recolour, or delete","Add your own tasks below","Hit + Add section to make your own categories"]) },
-];
+const SEED_TODAY = [];
 
 // Empty Future seed (shared version)
 const FUTURE_SEED = [];
