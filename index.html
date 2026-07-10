@@ -856,25 +856,34 @@ function Planner({ onReset }) {
           </div>
           
           <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.45)" }}>Completed tasks ({done.length})</p>
-          {doneSort === "all" ? (
+          
+          {doneSort === "all" && (
             // Show all tasks as simple list
-            done.map((item, ii) => (
-              <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                {item.text}
-                {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-              </div>
-            ))
-          ) : doneSort === "date" ? (
+            <div>
+              {done.map((item, ii) => (
+                <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                  {item.text}
+                  {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {doneSort === "date" && (
             // Sort by completion date
-            [...done].sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).map((item, ii) => (
-              <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                {item.text}
-                {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-              </div>
-            ))
-          ) : (
+            <div>
+              {[...done].sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).map((item, ii) => (
+                <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                  {item.text}
+                  {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {doneSort === "category" && (
             // Sort by category (from Future categories) + show orphaned items
-            <>
+            <div>
               {powerUp.map((category, categoryIndex) => {
                 const categoryItems = done.filter(item => item.section === category.id);
                 if (categoryItems.length === 0) return null;
@@ -911,7 +920,7 @@ function Planner({ onReset }) {
                   ))}
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       )}
