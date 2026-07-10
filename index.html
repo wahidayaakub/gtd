@@ -632,7 +632,7 @@ function Planner({ onReset }) {
                     onDelete={() => persistToday(todaySections.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
                     onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})}))}}
+                    onToggleTimer={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})})})}}
                     onAddTime={(secs) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
                     onMoveCategory={() => setMovingItem({si,ii})}
                     onEditText={(newText) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
@@ -735,7 +735,7 @@ function Planner({ onReset }) {
                     onDelete={() => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==origIi)}))}
                     onMoveUp={() => { if(origIi>0) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi-1]]=[newItems[origIi-1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(origIi<section.items.length-1) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi+1]]=[newItems[origIi+1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})}))}}
+                    onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})})})}}
                     onAddTime={(secs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
                     onMoveCategory={() => setPuActions({si,ii:origIi,item:section.items[origIi],section,isProject:false})}
                     onEditText={(newText) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,text:newText})}))}
@@ -828,7 +828,7 @@ function Planner({ onReset }) {
                     onDelete={() => persistProjects(projects.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
                     onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})}))}}
+                    onToggleTimer={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})})})}}
                     onAddTime={(secs) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
                     onMoveCategory={() => setPuActions({si,ii,item:section.items[ii],section,isProject:true})}
                     onEditText={(newText) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
