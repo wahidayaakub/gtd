@@ -7,11 +7,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GTD">
 <title>GTD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; padding: 0; background: #F5F1EB; font-family: Georgia, serif; }
-  button { font-family: Georgia, serif; }
-  input, textarea, select { font-family: Georgia, serif; }
+  body { margin: 0; padding: 0; background: #F5F1EB; font-family: 'Atkinson Hyperlegible', sans-serif; }
+  button { font-family: 'Atkinson Hyperlegible', sans-serif; }
+  input, textarea, select { font-family: 'Atkinson Hyperlegible', sans-serif; }
 </style>
 </head>
 <body>
@@ -32,11 +35,7 @@ const fmtShort = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-GB", { 
 const mk = (arr) => arr.map(text => ({ text, done: false, timeSpent: 0, timerStart: null }));
 
 const SEED_TODAY = [
-  { id:"replies",  label:"Replies",   emoji:"✉️", color:"#E8D5B7", accent:"#C4A265", items: mk(["Sumedha","Arman","IS","Graduation","Open Day"]) },
-  { id:"work",     label:"Work",       emoji:"💼", color:"#D4E8D5", accent:"#5A9E62", items: mk(["Send mid-term question for moderation","Exam questions","Follow-up with Data Protection","CLO-PLO mapping","Follow-up SFHEA"]) },
-  { id:"errands",  label:"Errands",    emoji:"🛒", color:"#D5D9E8", accent:"#5A6A9E", items: mk(["Beli plastik sampah"]) },
-  { id:"home",     label:"Home",       emoji:"🏠", color:"#E8D5D5", accent:"#9E5A5A", items: mk(["Cats poop","Kemas store","Simpan baju","Kumpul sampah","Mount bike","Susun kasut","Clear bonet kereta"]) },
-  { id:"finances", label:"Finances",   emoji:"💰", color:"#E8E8D5", accent:"#8A9E5A", items: mk(["CIMB Group","AKPK"]) },
+  { id:"welcome", label:"Getting Started", emoji:"👋", color:"#F0E6D3", accent:"#C4823A", items: mk(["Tap the circle to complete a task","Tap ⋯ to rename, recolour, or delete","Add your own tasks below","Hit + Add section to make your own categories"]) },
 ];
 
 const POWERUP_SEED = [
@@ -72,7 +71,7 @@ const fmtTime = (secs) => {
 };
 
 // ─── TaskItem ─────────────────────────────────────────────────────────────────
-function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown, onToggleTimer, onAddTime, onMoveCategory, accent }) {
+function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown, onToggleTimer, onAddTime, onMoveCategory, onEditText, accent }) {
   const [addingTime, setAddingTime] = useState(false);
   const [mins, setMins] = useState("");
   const [live, setLive] = useState(0);
@@ -89,6 +88,8 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
   const urgent = item.text.includes("⚡");
 
   const [showMenu, setShowMenu] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(item.text);
 
   return (
     <div style={{ borderRadius:"8px", background:"transparent", transition:"background 0.1s" }}
@@ -105,10 +106,18 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
           {item.done && <span style={{ color:"white", fontSize:"9px", fontWeight:700 }}>✓</span>}
         </button>
         {/* label */}
-        <button onClick={onToggle} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", lineHeight:"1.4", color:item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:urgent&&!item.done?"italic":"normal", padding:0 }}>
-          {item.text}
-          {totalSecs > 0 && <span style={{ fontSize:"10px", marginLeft:"6px", color:item.timerStart?"#5A9E62":"rgba(0,0,0,0.35)", fontWeight:600, fontStyle:"normal" }}>⏱ {fmtTime(totalSecs)}{item.timerStart?" ●":""}</span>}
-        </button>
+        {editing ? (
+          <input autoFocus value={editText}
+            onChange={e => setEditText(e.target.value)}
+            onBlur={() => { onEditText(editText.trim() || item.text); setEditing(false); }}
+            onKeyDown={e => { if(e.key==="Enter"){ onEditText(editText.trim() || item.text); setEditing(false); } if(e.key==="Escape"){ setEditText(item.text); setEditing(false); } }}
+            style={{ flex:1, background:"transparent", border:"none", borderBottom:`2px solid ${accent}`, outline:"none", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", padding:"2px 0", color:"rgba(0,0,0,0.78)" }} />
+        ) : (
+          <button onClick={onToggle} onDoubleClick={() => { setEditText(item.text); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", lineHeight:"1.4", color:item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:urgent&&!item.done?"italic":"normal", padding:0 }}>
+            {item.text}
+            {totalSecs > 0 && <span style={{ fontSize:"10px", marginLeft:"6px", color:item.timerStart?"#5A9E62":"rgba(0,0,0,0.35)", fontWeight:600, fontStyle:"normal" }}>⏱ {fmtTime(totalSecs)}{item.timerStart?" ●":""}</span>}
+          </button>
+        )}
         {/* timer */}
         <button onClick={onToggleTimer} style={{ background:item.timerStart?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:item.timerStart?"white":"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>
           {item.timerStart ? "⏹" : "▶"}
@@ -120,12 +129,16 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
           <button onClick={() => setShowMenu(v => !v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"12px", cursor:"pointer", color:"rgba(0,0,0,0.4)", fontWeight:700, lineHeight:1 }}>⋯</button>
           {showMenu && (
             <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"150px" }}>
+              <button onClick={() => { setEditText(item.text); setEditing(true); setShowMenu(false); }}
+                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                onMouseLeave={e => e.currentTarget.style.background="none"}>✎ Edit text</button>
               <button onClick={() => { onMoveCategory(); setShowMenu(false); }}
-                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
                 onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
                 onMouseLeave={e => e.currentTarget.style.background="none"}>📂 Move to category</button>
               <button onClick={() => { onDelete(); setShowMenu(false); }}
-                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
+                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
                 onMouseEnter={e => e.currentTarget.style.background="rgba(196,58,58,0.06)"}
                 onMouseLeave={e => e.currentTarget.style.background="none"}>🗑 Delete</button>
             </div>
@@ -135,7 +148,7 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
       {addingTime && (
         <div style={{ display:"flex", gap:"6px", padding:"2px 8px 6px 34px", alignItems:"center" }}>
           <input autoFocus type="number" value={mins} onChange={e => setMins(e.target.value)} placeholder="mins"
-            style={{ width:"60px", border:"none", borderBottom:`2px solid ${accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"2px 0" }} />
+            style={{ width:"60px", border:"none", borderBottom:`2px solid ${accent}`, background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"2px 0" }} />
           <button onClick={() => { onAddTime(parseInt(mins)||0); setMins(""); setAddingTime(false); }}
             style={{ background:accent, border:"none", borderRadius:"6px", color:"white", padding:"3px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
           <button onClick={() => setAddingTime(false)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", cursor:"pointer", fontSize:"12px" }}>✕</button>
@@ -146,13 +159,14 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
 }
 
 // ─── SectionCard ──────────────────────────────────────────────────────────────
-function SectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onReorder, onToggleTimer, onAddTime, onDeleteSection, onRenameSection, onMoveUp, onMoveDown, onMoveCategory }) {
+function SectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onReorder, onToggleTimer, onAddTime, onDeleteSection, onRenameSection, onMoveUp, onMoveDown, onMoveCategory, onSetColor, onSetEmoji, onEditText }) {
   const [adding,    setAdding]    = useState(false);
   const [txt,       setTxt]       = useState("");
   const [collapsed, setCollapsed] = useState(true);
   const [editing,   setEditing]   = useState(false);
   const [editName,  setEditName]  = useState(section.label);
   const [showMenu,  setShowMenu]  = useState(false);
+  const [pickingEmoji, setPickingEmoji] = useState(false);
 
   const done  = section.items.filter(it => it.done).length;
   const total = section.items.length;
@@ -175,9 +189,9 @@ function SectionCard({ section, index, total: totalSections, onToggle, onDelete,
               onBlur={() => { onRenameSection(editName.trim() || section.label); setEditing(false); }}
               onKeyDown={e => { if(e.key==="Enter"){ onRenameSection(editName.trim() || section.label); setEditing(false); } if(e.key==="Escape") setEditing(false); }}
               onClick={e => e.stopPropagation()}
-              style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", border:"none", borderBottom:"2px solid rgba(0,0,0,0.3)", background:"transparent", outline:"none", width:"120px", padding:"1px 2px" }} />
+              style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"13px", border:"none", borderBottom:"2px solid rgba(0,0,0,0.3)", background:"transparent", outline:"none", width:"120px", padding:"1px 2px" }} />
           ) : (
-            <span style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", color:"rgba(0,0,0,0.75)" }}>{section.label}</span>
+            <span style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"13px", color:"rgba(0,0,0,0.75)" }}>{section.label}</span>
           )}
           {totalTime > 0 && <span style={{ fontSize:"10px", color:"rgba(0,0,0,0.35)", fontWeight:600 }}>⏱ {fmtTime(totalTime)}</span>}
         </button>
@@ -196,11 +210,22 @@ function SectionCard({ section, index, total: totalSections, onToggle, onDelete,
             {showMenu && (
               <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"130px" }}>
                 <button onClick={() => { setEditing(true); setShowMenu(false); }}
-                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
                   onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
                   onMouseLeave={e => e.currentTarget.style.background="none"}>✎ Rename</button>
+                <label style={{ display:"flex", alignItems:"center", gap:"8px", width:"100%", padding:"10px 14px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:"#2C2C2C", boxSizing:"border-box" }}
+                  onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>
+                  🎨 Change colour
+                  <input type="color" defaultValue={section.color} onChange={e => { onSetColor(e.target.value); }}
+                    style={{ marginLeft:"auto", width:"24px", height:"24px", border:"none", borderRadius:"5px", cursor:"pointer", padding:0, background:"none" }} />
+                </label>
+                <button onClick={() => { setPickingEmoji(true); }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                  onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>😀 Change icon</button>
                 <button onClick={() => { onDeleteSection(); setShowMenu(false); }}
-                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
                   onMouseEnter={e => e.currentTarget.style.background="rgba(196,58,58,0.06)"}
                   onMouseLeave={e => e.currentTarget.style.background="none"}>🗑 Delete section</button>
               </div>
@@ -208,6 +233,17 @@ function SectionCard({ section, index, total: totalSections, onToggle, onDelete,
           </div>
         </div>
       </div>
+
+      {/* emoji picker */}
+      {pickingEmoji && (
+        <div style={{ background:"rgba(255,255,255,0.6)", borderRadius:"10px", padding:"8px", marginBottom:"8px", display:"flex", flexWrap:"wrap", gap:"4px" }}>
+          {["📌","📋","🔖","🗒️","⭐","🎯","🔔","📎","🗓️","✏️","✉️","💼","🛒","🏠","💰","🚀","📊","🔬","💡","📚","🎓","🌐","❤️","🌿","🔥","💪","🧠","☕","🍎","🎨","🎵","📖","✅","⏰","🌙","☀️","🧘","🏃","💊","🙏"].map((em,i) => (
+            <button key={i} onClick={() => { onSetEmoji(em); setPickingEmoji(false); setShowMenu(false); }}
+              style={{ background:"white", border:"none", borderRadius:"6px", padding:"4px 6px", fontSize:"16px", cursor:"pointer" }}>{em}</button>
+          ))}
+          <button onClick={() => setPickingEmoji(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"6px", padding:"4px 8px", fontSize:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Cancel</button>
+        </div>
+      )}
 
       {/* progress bar */}
       {!collapsed && (
@@ -224,19 +260,20 @@ function SectionCard({ section, index, total: totalSections, onToggle, onDelete,
               onToggle={() => onToggle(i)} onDelete={() => onDelete(i)}
               onMoveUp={() => onReorder(i, i-1)} onMoveDown={() => onReorder(i, i+1)}
               onToggleTimer={() => onToggleTimer(i)} onAddTime={(m) => onAddTime(i, m)}
-          onMoveCategory={() => { if(onMoveCategory) onMoveCategory(i); }} />
+          onMoveCategory={() => { if(onMoveCategory) onMoveCategory(i); }}
+          onEditText={(text) => onEditText(i, text)} />
           ))}
           {adding ? (
             <div style={{ display:"flex", gap:"6px", marginTop:"5px", padding:"0 6px" }}>
               <input autoFocus value={txt} onChange={e => setTxt(e.target.value)}
                 onKeyDown={e => { if(e.key==="Enter") submit(); if(e.key==="Escape") setAdding(false); }}
                 placeholder="New task…"
-                style={{ flex:1, border:"none", borderBottom:`2px solid ${section.accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                style={{ flex:1, border:"none", borderBottom:`2px solid ${section.accent}`, background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
               <button onClick={submit} style={{ background:section.accent, border:"none", borderRadius:"6px", color:"white", padding:"4px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
               <button onClick={() => setAdding(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"6px", padding:"4px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
             </div>
           ) : (
-            <button onClick={() => setAdding(true)} style={{ marginTop:"2px", marginLeft:"4px", background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.28)", fontFamily:"'Georgia', serif", padding:"3px 2px" }}>+ add task</button>
+            <button onClick={() => setAdding(true)} style={{ marginTop:"2px", marginLeft:"4px", background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.28)", fontFamily:"'Atkinson Hyperlegible', sans-serif", padding:"3px 2px" }}>+ add task</button>
           )}
         </>
       )}
@@ -274,7 +311,7 @@ function PUTaskItem({ item, index, total, accent, onToggle, onDelete, onOpenActi
         <button onClick={onToggle} style={{ flexShrink:0, width:"17px", height:"17px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
           {item.done && <span style={{ color:"white", fontSize:"8px", fontWeight:700 }}>✓</span>}
         </button>
-        <button onClick={onToggle} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", lineHeight:"1.4", color:item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", padding:0 }}>
+        <button onClick={onToggle} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", lineHeight:"1.4", color:item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", padding:0 }}>
           {item.text}
           {item.executionDate && !item.done && (
             <span style={{ fontSize:"10px", marginLeft:"7px", fontWeight:600, color:item.executionDate===todayStr()?"#5A9E62":"rgba(0,0,0,0.45)", background:item.executionDate===todayStr()?"rgba(90,158,98,0.12)":"rgba(0,0,0,0.06)", borderRadius:"4px", padding:"1px 5px" }}>
@@ -300,7 +337,7 @@ function PUTaskItem({ item, index, total, accent, onToggle, onDelete, onOpenActi
       {addingTime && (
         <div style={{ display:"flex", gap:"6px", padding:"2px 8px 6px 28px", alignItems:"center" }}>
           <input autoFocus type="number" value={mins} onChange={e => setMins(e.target.value)} placeholder="mins"
-            style={{ width:"60px", border:"none", borderBottom:`2px solid ${accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"2px 0" }} />
+            style={{ width:"60px", border:"none", borderBottom:`2px solid ${accent}`, background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"2px 0" }} />
           <button onClick={() => { onAddTime(parseInt(mins)||0); setMins(""); setAddingTime(false); }}
             style={{ background:accent, border:"none", borderRadius:"6px", color:"white", padding:"3px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
           <button onClick={() => setAddingTime(false)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", cursor:"pointer", fontSize:"12px" }}>✕</button>
@@ -311,7 +348,7 @@ function PUTaskItem({ item, index, total, accent, onToggle, onDelete, onOpenActi
 }
 
 // ─── PU SectionCard ───────────────────────────────────────────────────────────
-function PUSectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onOpenActions, onToggleTimer, onAddTime, onExecute, onMoveUp, onMoveDown, onRename, onDeleteSection, onReorderItems, deadlineFilter }) {
+function PUSectionCard({ section, index, total: totalSections, onToggle, onDelete, onAddItem, onOpenActions, onToggleTimer, onAddTime, onExecute, onMoveUp, onMoveDown, onRename, onDeleteSection, onReorderItems, onSetColor, deadlineFilter }) {
   const [adding,    setAdding]    = useState(false);
   const [collapsed, setCollapsed] = useState(true);
   const [editing,   setEditing]   = useState(false);
@@ -348,9 +385,9 @@ function PUSectionCard({ section, index, total: totalSections, onToggle, onDelet
               onBlur={() => { onRename(editName.trim() || section.label); setEditing(false); }}
               onKeyDown={e => { if(e.key==="Enter"){ onRename(editName.trim() || section.label); setEditing(false); } if(e.key==="Escape") setEditing(false); }}
               onClick={e => e.stopPropagation()}
-              style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", border:"none", borderBottom:"2px solid rgba(0,0,0,0.3)", background:"transparent", outline:"none", width:"120px", padding:"1px 2px" }} />
+              style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"13px", border:"none", borderBottom:"2px solid rgba(0,0,0,0.3)", background:"transparent", outline:"none", width:"120px", padding:"1px 2px" }} />
           ) : (
-            <span style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"13px", color:"rgba(0,0,0,0.75)" }}>{section.label}</span>
+            <span style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"13px", color:"rgba(0,0,0,0.75)" }}>{section.label}</span>
           )}
         </button>
         {/* right: count + arrows + menu */}
@@ -368,11 +405,18 @@ function PUSectionCard({ section, index, total: totalSections, onToggle, onDelet
             {showMenu && (
               <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"130px" }}>
                 <button onClick={() => { setEditing(true); setShowMenu(false); }}
-                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C" }}
                   onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
                   onMouseLeave={e => e.currentTarget.style.background="none"}>✎ Rename</button>
+                <label style={{ display:"flex", alignItems:"center", gap:"8px", width:"100%", padding:"10px 14px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:"#2C2C2C", boxSizing:"border-box" }}
+                  onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>
+                  🎨 Change colour
+                  <input type="color" defaultValue={section.color} onChange={e => { onSetColor(e.target.value); }}
+                    style={{ marginLeft:"auto", width:"24px", height:"24px", border:"none", borderRadius:"5px", cursor:"pointer", padding:0, background:"none" }} />
+                </label>
                 <button onClick={() => { onDeleteSection(); setShowMenu(false); }}
-                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Georgia', serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
+                  style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A" }}
                   onMouseEnter={e => e.currentTarget.style.background="rgba(196,58,58,0.06)"}
                   onMouseLeave={e => e.currentTarget.style.background="none"}>🗑 Delete</button>
               </div>
@@ -401,12 +445,12 @@ function PUSectionCard({ section, index, total: totalSections, onToggle, onDelet
               <input autoFocus value={txt} onChange={e => setTxt(e.target.value)}
                 onKeyDown={e => { if(e.key==="Enter") submit(); if(e.key==="Escape") setAdding(false); }}
                 placeholder="New task…"
-                style={{ flex:1, border:"none", borderBottom:`2px solid ${section.accent}`, background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                style={{ flex:1, border:"none", borderBottom:`2px solid ${section.accent}`, background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
               <button onClick={submit} style={{ background:section.accent, border:"none", borderRadius:"6px", color:"white", padding:"4px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
               <button onClick={() => setAdding(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"6px", padding:"4px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
             </div>
           ) : (
-            <button onClick={() => setAdding(true)} style={{ marginTop:"2px", marginLeft:"4px", background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.28)", fontFamily:"'Georgia', serif", padding:"3px 2px" }}>+ add task</button>
+            <button onClick={() => setAdding(true)} style={{ marginTop:"2px", marginLeft:"4px", background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.28)", fontFamily:"'Atkinson Hyperlegible', sans-serif", padding:"3px 2px" }}>+ add task</button>
           )}
         </>
       )}
@@ -428,7 +472,7 @@ function DoneTab({ done }) {
   ).sort((a,b) => b.pushedAt.localeCompare(a.pushedAt));
 
   const pill = (label, val, cur, set, color="#2C2C2C") => (
-    <button key={val} onClick={() => set(val)} style={{ background:cur===val?color:"rgba(0,0,0,0.06)", color:cur===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:cur===val?700:400, whiteSpace:"nowrap", transition:"all 0.15s" }}>{label}</button>
+    <button key={val} onClick={() => set(val)} style={{ background:cur===val?color:"rgba(0,0,0,0.06)", color:cur===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:cur===val?700:400, whiteSpace:"nowrap", transition:"all 0.15s" }}>{label}</button>
   );
 
   // Group by date
@@ -439,23 +483,23 @@ function DoneTab({ done }) {
     <div>
       <div style={{ marginBottom:"16px", display:"flex", flexDirection:"column", gap:"10px" }}>
         <div>
-          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Date</div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Date</div>
           <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selDate,setSelDate)}{dates.map(d => pill(fmtShort(d),d,selDate,setSelDate))}</div>
         </div>
         <div>
-          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Category</div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Category</div>
           <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selCat,setSelCat)}{cats.map(c => pill(c,c,selCat,setSelCat,"#5A6A9E"))}</div>
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ color:"rgba(0,0,0,0.35)", fontFamily:"'Georgia', serif", fontSize:"13px", padding:"20px 0" }}>
+        <div style={{ color:"rgba(0,0,0,0.35)", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", padding:"20px 0" }}>
           {done.length === 0 ? "Nothing pushed yet — tick tasks and hit Push Completed! ✨" : "No tasks match this filter."}
         </div>
       ) : (
         Object.entries(grouped).map(([date, tasks]) => (
           <div key={date} style={{ marginBottom:"24px" }}>
-            <div style={{ fontFamily:"'Georgia', serif", fontSize:"12px", fontWeight:700, color:"rgba(0,0,0,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:"8px" }}>
+            <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"12px", fontWeight:700, color:"rgba(0,0,0,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:"8px" }}>
               {fmtDate(date)} — {tasks.length} task{tasks.length!==1?"s":""}
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:"5px" }}>
@@ -463,7 +507,7 @@ function DoneTab({ done }) {
                 <div key={i} style={{ background:"white", borderRadius:"10px", padding:"10px 14px", display:"flex", alignItems:"center", gap:"10px", boxShadow:"0 1px 6px rgba(0,0,0,0.05)" }}>
                   <span style={{ fontSize:"13px", flexShrink:0 }}>{t.emoji}</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.6)", textDecoration:"line-through" }}>{t.text}</div>
+                    <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:"rgba(0,0,0,0.6)", textDecoration:"line-through" }}>{t.text}</div>
                     <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.35)", marginTop:"2px" }}>
                       {t.category}
                       {t.timeSpent > 0 && <span style={{ marginLeft:"8px", color:"#5A9E62", fontWeight:600 }}>⏱ {fmtTime(t.timeSpent)}</span>}
@@ -500,7 +544,7 @@ function ReviewTab({ done, powerUp }) {
   );
 
   const pill = (label, val, cur, set, color="#2C2C2C") => (
-    <button key={val} onClick={() => set(val)} style={{ background:cur===val?color:"rgba(0,0,0,0.06)", color:cur===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:cur===val?700:400, whiteSpace:"nowrap", transition:"all 0.15s" }}>{label}</button>
+    <button key={val} onClick={() => set(val)} style={{ background:cur===val?color:"rgba(0,0,0,0.06)", color:cur===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:cur===val?700:400, whiteSpace:"nowrap", transition:"all 0.15s" }}>{label}</button>
   );
 
   const grouped = {};
@@ -512,11 +556,11 @@ function ReviewTab({ done, powerUp }) {
     <div>
       <div style={{ marginBottom:"16px", display:"flex", flexDirection:"column", gap:"10px" }}>
         <div>
-          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Date</div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Date</div>
           <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selDate,setSelDate)}{dates.map(d => pill(fmtShort(d),d,selDate,setSelDate))}</div>
         </div>
         <div>
-          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Georgia', serif" }}>Category</div>
+          <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.38)", marginBottom:"5px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Category</div>
           <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>{pill("All","all",selCat,setSelCat)}{cats.map(c => pill(c,c,selCat,setSelCat,"#5A6A9E"))}</div>
         </div>
       </div>
@@ -524,17 +568,17 @@ function ReviewTab({ done, powerUp }) {
         <div style={{ background:"white", borderRadius:"12px", padding:"12px 16px", marginBottom:"16px", boxShadow:"0 1px 6px rgba(0,0,0,0.05)", display:"flex", alignItems:"center", gap:"10px" }}>
           <span style={{ fontSize:"18px" }}>⏱</span>
           <div>
-            <div style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"15px" }}>{fmtTime(totalTime)} tracked</div>
+            <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"15px" }}>{fmtTime(totalTime)} tracked</div>
             <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.4)" }}>{filtered.length} tasks in this view</div>
           </div>
         </div>
       )}
       {filtered.length === 0 ? (
-        <div style={{ color:"rgba(0,0,0,0.35)", fontFamily:"'Georgia', serif", fontSize:"13px", padding:"20px 0" }}>No completed tasks yet. ✨</div>
+        <div style={{ color:"rgba(0,0,0,0.35)", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", padding:"20px 0" }}>No completed tasks yet. ✨</div>
       ) : (
         Object.entries(grouped).map(([date, tasks]) => (
           <div key={date} style={{ marginBottom:"24px" }}>
-            <div style={{ fontFamily:"'Georgia', serif", fontSize:"12px", fontWeight:700, color:"rgba(0,0,0,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:"8px", display:"flex", justifyContent:"space-between" }}>
+            <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"12px", fontWeight:700, color:"rgba(0,0,0,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:"8px", display:"flex", justifyContent:"space-between" }}>
               <span>{fmtDate(date)}</span>
               <span style={{ fontWeight:400 }}>{tasks.length} task{tasks.length!==1?"s":""} · {fmtTime(tasks.reduce((a,t)=>a+(t.timeSpent||0),0)) || "no time tracked"}</span>
             </div>
@@ -543,7 +587,7 @@ function ReviewTab({ done, powerUp }) {
                 <div key={i} style={{ background:"white", borderRadius:"10px", padding:"10px 14px", display:"flex", alignItems:"center", gap:"10px", boxShadow:"0 1px 6px rgba(0,0,0,0.05)" }}>
                   <span style={{ fontSize:"13px", flexShrink:0 }}>{t.emoji}</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.6)", textDecoration:"line-through" }}>{t.text}</div>
+                    <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:"rgba(0,0,0,0.6)", textDecoration:"line-through" }}>{t.text}</div>
                     <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.35)", marginTop:"2px" }}>
                       {t.category}
                       {t.source==="powerup" && <span style={{ marginLeft:"6px", color:"#C4823A", fontWeight:600 }}>⚡ PU</span>}
@@ -566,16 +610,16 @@ function MoveTodayCategoryModal({ item, fromSi, sections, onMove, onClose }) {
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
       <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
-        <div style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>📂 Move "{item.text}"</div>
+        <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>📂 Move "{item.text}"</div>
         <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", marginBottom:"20px" }}>
           {sections.map((sec, i) => (
             <button key={i} onClick={() => { onMove(i); onClose(); }}
-              style={{ background: i === fromSi ? sec.color : "rgba(0,0,0,0.05)", border: i === fromSi ? `2px solid ${sec.accent}` : "2px solid transparent", borderRadius:"8px", padding:"6px 12px", cursor: i === fromSi ? "default" : "pointer", fontFamily:"'Georgia', serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: i === fromSi ? 700 : 400 }}>
+              style={{ background: i === fromSi ? sec.color : "rgba(0,0,0,0.05)", border: i === fromSi ? `2px solid ${sec.accent}` : "2px solid transparent", borderRadius:"8px", padding:"6px 12px", cursor: i === fromSi ? "default" : "pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: i === fromSi ? 700 : 400 }}>
               {sec.emoji} {sec.label}
             </button>
           ))}
         </div>
-        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px" }}>Cancel</button>
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
       </div>
     </div>
   );
@@ -609,23 +653,23 @@ function BackupModal({ today, done, powerUp, date, projects, onClose }) {
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
       <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
-        <h2 style={{ fontFamily:"'Georgia', serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>📋 Backup</h2>
-        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Georgia', serif" }}>
+        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>📋 Backup</h2>
+        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
           Save as a file to iCloud Drive, or copy the text to Notes/WhatsApp.
         </p>
 
         {/* Option 1: Save file */}
-        <button onClick={saveFile} style={{ width:"100%", background:saved?"#5A9E62":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700, marginBottom:"8px", transition:"background 0.2s" }}>
+        <button onClick={saveFile} style={{ width:"100%", background:saved?"#5A9E62":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"8px", transition:"background 0.2s" }}>
           {saved ? "✓ File saved!" : "💾 Save as file (iCloud Drive)"}
         </button>
 
         {/* Option 2: Copy text */}
-        <button onClick={copy} style={{ width:"100%", background:copied?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:copied?"white":"rgba(0,0,0,0.6)", padding:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:600, marginBottom:"14px", transition:"background 0.2s" }}>
+        <button onClick={copy} style={{ width:"100%", background:copied?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:copied?"white":"rgba(0,0,0,0.6)", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:600, marginBottom:"14px", transition:"background 0.2s" }}>
           {copied ? "✓ Copied!" : "📋 Copy to clipboard"}
         </button>
 
         <textarea id="bta" readOnly value={text} style={{ width:"100%", height:"80px", borderRadius:"8px", border:"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", color:"rgba(0,0,0,0.55)", resize:"none", boxSizing:"border-box", background:"#F5F1EB" }} />
-        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", marginTop:"8px" }}>Close</button>
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", marginTop:"8px" }}>Close</button>
       </div>
     </div>
   );
@@ -660,21 +704,21 @@ function RestoreModal({ onRestoreAndReset, onClose }) {
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
       <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
-        <h2 style={{ fontFamily:"'Georgia', serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>⬆ Restore Backup</h2>
-        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Georgia', serif" }}>Load from iCloud file, or paste backup text.</p>
+        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>⬆ Restore Backup</h2>
+        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Load from iCloud file, or paste backup text.</p>
 
         {/* Option 1: File */}
-        <label style={{ display:"block", width:"100%", background:"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700, marginBottom:"12px", textAlign:"center", boxSizing:"border-box" }}>
+        <label style={{ display:"block", width:"100%", background:"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"12px", textAlign:"center", boxSizing:"border-box" }}>
           📂 Load from file (iCloud Drive)
           <input type="file" accept=".json,application/json" onChange={loadFile} style={{ display:"none" }} />
         </label>
 
         {/* Option 2: Paste */}
         <textarea value={txt} onChange={e => setTxt(e.target.value)} placeholder="…or paste backup text here" style={{ width:"100%", height:"90px", borderRadius:"8px", border:"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", resize:"none", boxSizing:"border-box" }} />
-        {msg && <div style={{ marginTop:"8px", fontSize:"13px", color:msg.startsWith("✓")?"#5A9E62":"#C43A3A", fontFamily:"'Georgia', serif", fontWeight:600 }}>{msg}</div>}
+        {msg && <div style={{ marginTop:"8px", fontSize:"13px", color:msg.startsWith("✓")?"#5A9E62":"#C43A3A", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>{msg}</div>}
         <div style={{ display:"flex", gap:"8px", marginTop:"10px" }}>
-          <button onClick={() => doRestore(txt)} style={{ flex:1, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700 }}>Restore from text</button>
-          <button onClick={onClose} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px" }}>Cancel</button>
+          <button onClick={() => doRestore(txt)} style={{ flex:1, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700 }}>Restore from text</button>
+          <button onClick={onClose} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -687,15 +731,15 @@ function PUActionsModal({ item, section, categories, onSetDeadline, onSetExecuti
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
       <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)", maxHeight:"90vh", overflowY:"auto" }}>
-        <div style={{ fontFamily:"'Georgia', serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>{section.emoji} {item.text}</div>
+        <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>{section.emoji} {item.text}</div>
 
         {/* Move to category */}
         <div style={{ marginBottom:"16px" }}>
-          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"8px", fontFamily:"'Georgia', serif" }}>📂 Move to category</div>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"8px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>📂 Move to category</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
             {categories.map((cat, i) => (
               <button key={i} onClick={() => { onMoveCategory(i); onClose(); }}
-                style={{ background: cat.id === section.id ? cat.color : "rgba(0,0,0,0.05)", border: cat.id === section.id ? `2px solid ${cat.accent}` : "2px solid transparent", borderRadius:"8px", padding:"5px 10px", cursor: cat.id === section.id ? "default" : "pointer", fontFamily:"'Georgia', serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: cat.id === section.id ? 700 : 400 }}>
+                style={{ background: cat.id === section.id ? cat.color : "rgba(0,0,0,0.05)", border: cat.id === section.id ? `2px solid ${cat.accent}` : "2px solid transparent", borderRadius:"8px", padding:"5px 10px", cursor: cat.id === section.id ? "default" : "pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: cat.id === section.id ? 700 : 400 }}>
                 {cat.emoji} {cat.label}
               </button>
             ))}
@@ -704,10 +748,10 @@ function PUActionsModal({ item, section, categories, onSetDeadline, onSetExecuti
 
         {/* Execution date */}
         <div style={{ marginBottom:"16px" }}>
-          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Georgia', serif" }}>📅 Execution date <span style={{ opacity:0.6 }}>(→ Today on this date)</span></div>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>📅 Execution date <span style={{ opacity:0.6 }}>(→ Today on this date)</span></div>
           <div style={{ display:"flex", gap:"8px" }}>
             <input type="date" value={execDate} onChange={e => setExecDate(e.target.value)}
-              style={{ flex:1, border:"1px solid #5A9E62", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Georgia', serif" }} />
+              style={{ flex:1, border:"1px solid #5A9E62", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }} />
             <button onClick={() => { onSetExecution(execDate||null); onClose(); }}
               style={{ background:"#5A9E62", border:"none", borderRadius:"6px", color:"white", padding:"6px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Set</button>
             {item.executionDate && <button onClick={() => { onSetExecution(null); onClose(); }}
@@ -717,10 +761,10 @@ function PUActionsModal({ item, section, categories, onSetDeadline, onSetExecuti
 
         {/* Deadline */}
         <div style={{ marginBottom:"20px" }}>
-          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Georgia', serif" }}>⏳ Deadline</div>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>⏳ Deadline</div>
           <div style={{ display:"flex", gap:"8px" }}>
             <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
-              style={{ flex:1, border:"1px solid #5A6A9E", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Georgia', serif" }} />
+              style={{ flex:1, border:"1px solid #5A6A9E", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }} />
             <button onClick={() => { onSetDeadline(deadline||null); onClose(); }}
               style={{ background:"#5A6A9E", border:"none", borderRadius:"6px", color:"white", padding:"6px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Set</button>
             {item.deadline && <button onClick={() => { onSetDeadline(null); onClose(); }}
@@ -728,7 +772,7 @@ function PUActionsModal({ item, section, categories, onSetDeadline, onSetExecuti
           </div>
         </div>
 
-        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px" }}>Close</button>
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Close</button>
       </div>
     </div>
   );
@@ -750,6 +794,7 @@ function Planner({ onReset }) {
   const [newSecName,    setNewSecName]    = useState("");
   const [showBackup,    setShowBackup]    = useState(false);
   const [showRestore,   setShowRestore]   = useState(false);
+  const [showClear,     setShowClear]     = useState(false);
   const [puActions,     setPuActions]     = useState(null);
   const [deadlineFilter,setDeadlineFilter]= useState("all");
   const [puSortOrder,  setPuSortOrder]   = useState("default"); // "default" | "deadline" | "execDate"
@@ -940,7 +985,7 @@ function Planner({ onReset }) {
   };
 
   if (!loaded) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontFamily:"'Georgia', serif", color:"#aaa", fontSize:"15px" }}>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontFamily:"'Atkinson Hyperlegible', sans-serif", color:"#aaa", fontSize:"15px" }}>
       Loading your planner…
     </div>
   );
@@ -950,11 +995,11 @@ function Planner({ onReset }) {
   const hasDone    = totalDone > 0;
 
   const dfPill = (label, val) => (
-    <button key={val} onClick={() => setDeadlineFilter(val)} style={{ background:deadlineFilter===val?"#2C2C2C":"rgba(0,0,0,0.06)", color:deadlineFilter===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:deadlineFilter===val?700:400, whiteSpace:"nowrap" }}>{label}</button>
+    <button key={val} onClick={() => setDeadlineFilter(val)} style={{ background:deadlineFilter===val?"#2C2C2C":"rgba(0,0,0,0.06)", color:deadlineFilter===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"5px 12px", fontSize:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:deadlineFilter===val?700:400, whiteSpace:"nowrap" }}>{label}</button>
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:"#F5F1EB", fontFamily:"'Georgia', serif" }}>
+    <div style={{ minHeight:"100vh", background:"#F5F1EB", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
 
       {/* header */}
       <div style={{ background:"#2C2C2C", color:"#F5F1EB", padding:"20px 24px 0", position:"sticky", top:0, zIndex:20, boxShadow:"0 4px 20px rgba(0,0,0,0.2)" }}>
@@ -962,14 +1007,15 @@ function Planner({ onReset }) {
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:"8px" }}>
             <h1 style={{ margin:0, fontSize:"22px", fontWeight:700, letterSpacing:"-0.3px" }}>My Planner</h1>
             <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-              <button onClick={() => setShowBackup(true)} style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"6px", color:"#F5F1EB", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:600 }}>⬇ Backup</button>
-              <button onClick={() => setShowRestore(true)} style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"6px", color:"#F5F1EB", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:600 }}>⬆ Restore</button>
+              <button onClick={() => setShowBackup(true)} style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"6px", color:"#F5F1EB", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>⬇ Backup</button>
+              <button onClick={() => setShowRestore(true)} style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"6px", color:"#F5F1EB", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>⬆ Restore</button>
+              <button onClick={() => setShowClear(true)} style={{ background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"6px", color:"#F5F1EB", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>🗑 Clear</button>
             </div>
           </div>
           {/* tabs */}
           <div style={{ display:"flex", gap:"5px", marginTop:"14px", overflowX:"auto", paddingBottom:"0" }}>
             {[["today","📅 Today"],["done","✅ Done"],["powerup","⚡ Power-Up"],["projects","🗂️ Projects"]].map(([k,label]) => (
-              <button key={k} onClick={() => setTab(k)} style={{ background:tab===k?"#F5F1EB":"transparent", color:tab===k?"#2C2C2C":"#F5F1EB", border:tab===k?"none":"1px solid rgba(255,255,255,0.2)", borderRadius:"8px 8px 0 0", padding:"7px 13px", fontSize:"12px", fontWeight:600, cursor:"pointer", fontFamily:"'Georgia', serif", whiteSpace:"nowrap", flexShrink:0, position:"relative" }}>
+              <button key={k} onClick={() => setTab(k)} style={{ background:tab===k?"#F5F1EB":"transparent", color:tab===k?"#2C2C2C":"#F5F1EB", border:tab===k?"none":"1px solid rgba(255,255,255,0.2)", borderRadius:"8px 8px 0 0", padding:"7px 13px", fontSize:"12px", fontWeight:600, cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", whiteSpace:"nowrap", flexShrink:0, position:"relative" }}>
                 {label}
                 {k==="done" && done.length>0 && tab!=="done" && <span style={{ position:"absolute", top:"4px", right:"4px", width:"6px", height:"6px", borderRadius:"50%", background:"#5A9E62" }} />}
               </button>
@@ -990,16 +1036,16 @@ function Planner({ onReset }) {
                   <input type="date" value={date} autoFocus
                     onChange={e => { persistDate(e.target.value); }}
                     onBlur={() => setEditingDate(false)}
-                    style={{ border:"2px solid #2C2C2C", borderRadius:"8px", padding:"6px 10px", fontSize:"13px", fontFamily:"'Georgia', serif", outline:"none" }} />
+                    style={{ border:"2px solid #2C2C2C", borderRadius:"8px", padding:"6px 10px", fontSize:"13px", fontFamily:"'Atkinson Hyperlegible', sans-serif", outline:"none" }} />
                 ) : (
-                  <button onClick={() => setEditingDate(true)} style={{ background:"white", border:"2px solid rgba(0,0,0,0.1)", borderRadius:"8px", padding:"6px 12px", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:600, color:"#2C2C2C", cursor:"pointer" }}>
+                  <button onClick={() => setEditingDate(true)} style={{ background:"white", border:"2px solid rgba(0,0,0,0.1)", borderRadius:"8px", padding:"6px 12px", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:600, color:"#2C2C2C", cursor:"pointer" }}>
                     📅 {fmtDate(date)} ✎
                   </button>
                 )}
                 <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)" }}>{totalDone}/{totalItems} done</span>
               </div>
               {hasDone && (
-                <button onClick={pushCompleted} style={{ background:"#5A9E62", border:"none", borderRadius:"8px", color:"white", padding:"8px 16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", fontWeight:700 }}>
+                <button onClick={pushCompleted} style={{ background:"#5A9E62", border:"none", borderRadius:"8px", color:"white", padding:"8px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700 }}>
                   ✅ Push Completed
                 </button>
               )}
@@ -1017,6 +1063,9 @@ function Planner({ onReset }) {
                     onAddTime={(i, m) => addTime(si, i, m)}
                     onDeleteSection={() => persistToday(todaySections.filter((_,i) => i !== si))}
                     onRenameSection={(name) => updateSection(si, s => ({...s, label: name}))}
+                    onSetColor={(color) => updateSection(si, s => ({...s, color}))}
+                    onSetEmoji={(emoji) => updateSection(si, s => ({...s, emoji}))}
+                    onEditText={(i, text) => updateSection(si, s => ({...s, items:s.items.map((it,idx)=>idx===i?{...it,text}:it)}))}
                     onMoveUp={() => { const t=[...todaySections]; const [m]=t.splice(si,1); t.splice(si-1,0,m); persistToday(t); }}
                     onMoveDown={() => { const t=[...todaySections]; const [m]=t.splice(si,1); t.splice(si+1,0,m); persistToday(t); }}
                     onMoveCategory={(ii) => setMovingItem({ si, ii })} />
@@ -1030,13 +1079,13 @@ function Planner({ onReset }) {
                       <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)}
                         onKeyDown={e => { if(e.key==="Enter") addSection(); if(e.key==="Escape") setAddingSection(false); }}
                         placeholder="e.g. Prayer, Appointments…"
-                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
                       <button onClick={addSection} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={() => setAddingSection(true)}
-                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
+                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
                     onMouseEnter={e => { e.currentTarget.style.background="rgba(0,0,0,0.06)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.18)"; }}
                     onMouseLeave={e => { e.currentTarget.style.background="rgba(0,0,0,0.03)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.1)"; }}>
                     + Add section
@@ -1055,9 +1104,9 @@ function Planner({ onReset }) {
               {dfPill("All","all")}{dfPill("Has deadline","hasDeadline")}{dfPill("Overdue","overdue")}{dfPill("No deadline","noDeadline")}{dfPill("Has exec date","hasExecDate")}
             </div>
             <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", marginBottom:"16px", paddingTop:"4px", borderTop:"1px solid rgba(0,0,0,0.06)" }}>
-              <span style={{ fontSize:"11px", color:"rgba(0,0,0,0.4)", fontFamily:"'Georgia', serif", alignSelf:"center" }}>Sort:</span>
+              <span style={{ fontSize:"11px", color:"rgba(0,0,0,0.4)", fontFamily:"'Atkinson Hyperlegible', sans-serif", alignSelf:"center" }}>Sort:</span>
               {[["default","Default"],["deadline","By deadline"],["execDate","By exec date"]].map(([val,label]) => (
-                <button key={val} onClick={() => setPuSortOrder(val)} style={{ background:puSortOrder===val?"#2C2C2C":"rgba(0,0,0,0.06)", color:puSortOrder===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"4px 11px", fontSize:"11px", cursor:"pointer", fontFamily:"'Georgia', serif", fontWeight:puSortOrder===val?700:400 }}>{label}</button>
+                <button key={val} onClick={() => setPuSortOrder(val)} style={{ background:puSortOrder===val?"#2C2C2C":"rgba(0,0,0,0.06)", color:puSortOrder===val?"white":"rgba(0,0,0,0.6)", border:"none", borderRadius:"20px", padding:"4px 11px", fontSize:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:puSortOrder===val?700:400 }}>{label}</button>
               ))}
             </div>
 
@@ -1087,7 +1136,7 @@ function Planner({ onReset }) {
                           {item.done && <span style={{ color:"white", fontSize:"8px", fontWeight:700 }}>✓</span>}
                         </button>
                         <div style={{ flex:1 }}>
-                          <div style={{ fontFamily:"'Georgia', serif", fontSize:"13px", color:item.done?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none" }}>{item.text}</div>
+                          <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:item.done?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none" }}>{item.text}</div>
                           <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.4)", marginTop:"2px" }}>
                             {sec.emoji} {sec.label}
                             {item.deadline && <span style={{ marginLeft:"8px", color: item.deadline < todayStr() && !item.done ? "#C43A3A" : "rgba(0,0,0,0.45)", fontWeight:600 }}>⏳ {fmtShort(item.deadline)}</span>}
@@ -1099,7 +1148,7 @@ function Planner({ onReset }) {
                     </div>
                   ))}
                   {noDate.length > 0 && (
-                    <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.35)", fontFamily:"'Georgia', serif", padding:"8px 4px" }}>
+                    <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.35)", fontFamily:"'Atkinson Hyperlegible', sans-serif", padding:"8px 4px" }}>
                       {noDate.length} task{noDate.length!==1?"s":""} with no {puSortOrder==="deadline"?"deadline":"exec date"} — switch to Default view to see them
                     </div>
                   )}
@@ -1120,6 +1169,7 @@ function Planner({ onReset }) {
                     onMoveUp={() => { const p=[...powerUp]; const [m]=p.splice(si,1); p.splice(si-1,0,m); persistPU(p); }}
                     onMoveDown={() => { const p=[...powerUp]; const [m]=p.splice(si,1); p.splice(si+1,0,m); persistPU(p); }}
                     onRename={(name) => persistPU(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onSetColor={(color) => persistPU(powerUp.map((s,i) => i!==si?s:{...s,color}))}
                     onDeleteSection={() => persistPU(powerUp.filter((_,i) => i!==si))}
                     onReorderItems={(items) => persistPU(powerUp.map((s,i) => i!==si?s:{...s,items}))} />
                 </div>
@@ -1133,14 +1183,14 @@ function Planner({ onReset }) {
                       <input autoFocus value={newPUSecName} onChange={e => setNewPUSecName(e.target.value)}
                         onKeyDown={e => { if(e.key==="Enter") addPUSection(); if(e.key==="Escape") setAddingPUSection(false); }}
                         placeholder="e.g. Side Projects, Learning…"
-                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
                       <button onClick={addPUSection} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
                       <button onClick={() => setAddingPUSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={() => setAddingPUSection(true)}
-                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
+                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
                     onMouseEnter={e => { e.currentTarget.style.background="rgba(0,0,0,0.06)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.18)"; }}
                     onMouseLeave={e => { e.currentTarget.style.background="rgba(0,0,0,0.03)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.1)"; }}>
                     + Add category
@@ -1177,6 +1227,7 @@ function Planner({ onReset }) {
                     onMoveUp={() => { const p=[...projects]; const [m]=p.splice(si,1); p.splice(si-1,0,m); persistProjects(p); }}
                     onMoveDown={() => { const p=[...projects]; const [m]=p.splice(si,1); p.splice(si+1,0,m); persistProjects(p); }}
                     onRename={(name) => persistProjects(projects.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onSetColor={(color) => persistProjects(projects.map((s,i) => i!==si?s:{...s,color}))}
                     onDeleteSection={() => persistProjects(projects.filter((_,i) => i!==si))}
                     onReorderItems={(items) => persistProjects(projects.map((s,i) => i!==si?s:{...s,items}))} />
                 </div>
@@ -1189,14 +1240,14 @@ function Planner({ onReset }) {
                       <input autoFocus value={newProjectSecName} onChange={e => setNewProjectSecName(e.target.value)}
                         onKeyDown={e => { if(e.key==="Enter") addProjSection(); if(e.key==="Escape") setAddingProjectSection(false); }}
                         placeholder="e.g. SFHEA, D.E.B.T App…"
-                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Georgia', serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                        style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"3px 0" }} />
                       <button onClick={addProjSection} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
                       <button onClick={() => setAddingProjectSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer", fontSize:"12px" }}>✕</button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={() => setAddingProjectSection(true)}
-                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Georgia', serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
+                    style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", color:"rgba(0,0,0,0.3)", transition:"all 0.2s" }}
                     onMouseEnter={e => { e.currentTarget.style.background="rgba(0,0,0,0.06)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.18)"; }}
                     onMouseLeave={e => { e.currentTarget.style.background="rgba(0,0,0,0.03)"; e.currentTarget.style.borderColor="rgba(0,0,0,0.1)"; }}>
                     + New project
@@ -1217,6 +1268,31 @@ function Planner({ onReset }) {
           sections={todaySections}
           onMove={(toSi) => moveTodayItem(movingItem.si, movingItem.ii, toSi)}
           onClose={() => setMovingItem(null)} />
+      )}
+      {showClear && (
+        <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+            <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>🗑 Clear all data?</h2>
+            <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.55)", margin:"0 0 8px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
+              This wipes everything and resets to a fresh blank planner. This cannot be undone.
+            </p>
+            <p style={{ fontSize:"12px", color:"#C43A3A", margin:"0 0 18px", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>
+              ⚠️ Backup first if you might want your data back!
+            </p>
+            <div style={{ display:"flex", gap:"8px" }}>
+              <button onClick={() => {
+                localStorage.removeItem(LS_TODAY);
+                localStorage.removeItem(LS_DONE);
+                localStorage.removeItem(LS_PU);
+                localStorage.removeItem(LS_DATE);
+                localStorage.removeItem(LS_PROJ);
+                setShowClear(false);
+                onReset();
+              }} style={{ flex:1, background:"#C43A3A", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700 }}>Yes, clear everything</button>
+              <button onClick={() => setShowClear(false)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
       {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} onClose={() => setShowBackup(false)} />}
       {showRestore && <RestoreModal onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onClose={() => setShowRestore(false)} />}
