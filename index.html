@@ -491,7 +491,13 @@ function Planner({ onReset }) {
   const [movingItem, setMovingItem] = useState(null);
   const [puActions, setPuActions] = useState(null);
   const [draggedTask, setDraggedTask] = useState(null);
-  const [collapsedSections, setCollapsedSections] = useState({});
+  const [collapsedSections, setCollapsedSections] = useState({}); // Collapsed by default via getCollapsedState
+  
+  // Initialize collapsed state - check if key exists, default to true (collapsed)
+  const getCollapsedState = (key) => {
+    if (collapsedSections.hasOwnProperty(key)) return collapsedSections[key];
+    return true; // default collapsed
+  };
   const [doneSort, setDoneSort] = useState("date"); // "date" | "category"
   const [futureSort, setFutureSort] = useState("deadline"); // "deadline" | "executionDate"
 
@@ -573,10 +579,11 @@ function Planner({ onReset }) {
       {/* content - Today */}
       {tab === "today" && (
         <>
-          {todaySections.map((section, si) => {
-            const isCollapsed = collapsedSections[`today-${si}`];
-            return (
-            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+            {todaySections.map((section, si) => {
+              const isCollapsed = getCollapsedState(`today-${si}`);
+              return (
+              <div key={si} style={{ breakInside:"avoid" }}>
               <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)" }}>
                 {/* section header */}
                 <SectionHeader
@@ -621,6 +628,7 @@ function Planner({ onReset }) {
             </div>
             );
           })}
+          </div>
           {/* add section */}
           <div style={{ marginBottom:"16px" }}>
             {addingSection ? (
@@ -648,8 +656,9 @@ function Planner({ onReset }) {
             <button onClick={() => setFutureSort("deadline")} style={{ background:futureSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
             <button onClick={() => setFutureSort("executionDate")} style={{ background:futureSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
           </div>
-          {powerUp.map((section, si) => {
-            const isCollapsed = collapsedSections[`future-${si}`];
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+            {powerUp.map((section, si) => {
+            const isCollapsed = getCollapsedState(`future-${si}`);
             // Sort items based on selected sort
             const sortedItems = futureSort === "deadline" 
               ? [...section.items].sort((a,b) => {
@@ -680,7 +689,10 @@ function Planner({ onReset }) {
                 
                 {/* items - sorted, only show if not collapsed */}
                 {!isCollapsed && sortedItems.map((item, ii) => {
-                  const origIi = section.items.indexOf(item);
+                  // Find the original index of this item in the unsorted array
+                  const origIi = section.items.findIndex(it => 
+                    it.text === item.text && it.timeSpent === item.timeSpent && it.done === item.done
+                  );
                   return (
                   <TaskItem
                     key={origIi}
@@ -717,6 +729,7 @@ function Planner({ onReset }) {
             </div>
             );
           })}
+          </div>
           
           {/* add section for Future */}
           <div style={{ marginBottom:"16px" }}>
@@ -739,8 +752,9 @@ function Planner({ onReset }) {
       {/* content - Projects */}
       {tab === "projects" && (
         <>
-          {projects.map((section, si) => {
-            const isCollapsed = collapsedSections[`projects-${si}`];
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+            {projects.map((section, si) => {
+            const isCollapsed = getCollapsedState(`projects-${si}`);
             return (
             <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }}>
               <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)" }}>
@@ -792,6 +806,7 @@ function Planner({ onReset }) {
             </div>
             );
           })}
+          </div>
           
           {/* add section for Projects */}
           <div style={{ marginBottom:"16px" }}>
@@ -831,21 +846,37 @@ function Planner({ onReset }) {
               </div>
             ))
           ) : (
-            // Sort by category (from Future categories)
-            powerUp.map((category) => {
-              const categoryItems = done.filter(item => item.section === category.id);
-              if (categoryItems.length === 0) return null;
-              return (
-                <div key={category.id} style={{ marginBottom:"12px" }}>
-                  <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>{category.emoji} {category.label}</div>
-                  {categoryItems.map((item, ii) => (
+            // Sort by category (from Future categories) + show orphaned items
+            <>
+              {powerUp.map((category) => {
+                const categoryItems = done.filter(item => item.section === category.id);
+                if (categoryItems.length === 0) return null;
+                return (
+                  <div key={category.id} style={{ marginBottom:"12px" }}>
+                    <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>{category.emoji} {category.label}</div>
+                    {categoryItems.map((item, ii) => (
+                      <div key={ii} style={{ paddingLeft:"16px", padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                        {item.text}
+                        {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              
+              {/* Orphaned items (category was deleted) */}
+              {done.filter(item => !powerUp.some(cat => cat.id === item.section)).length > 0 && (
+                <div style={{ marginBottom:"12px", opacity:0.6 }}>
+                  <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>🗑️ Deleted Categories</div>
+                  {done.filter(item => !powerUp.some(cat => cat.id === item.section)).map((item, ii) => (
                     <div key={ii} style={{ paddingLeft:"16px", padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
                       {item.text}
+                      {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
                     </div>
                   ))}
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
       )}
