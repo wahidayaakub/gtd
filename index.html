@@ -496,6 +496,7 @@ function Planner({ onReset }) {
   const [date, setDate] = useState(load(LS_DATE, todayStr()));
   const [tab, setTab] = useState("today");
   const [addingSection, setAddingSection] = useState(false);
+  const [addingTask, setAddingTask] = useState(null);
   const [newSecName, setNewSecName] = useState("");
   const [showBackup, setShowBackup] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
@@ -631,7 +632,7 @@ function Planner({ onReset }) {
                     onDelete={() => persistToday(todaySections.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
                     onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now()})}))}
+                    onToggleTimer={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})}))}}
                     onAddTime={(secs) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
                     onMoveCategory={() => setMovingItem({si,ii})}
                     onEditText={(newText) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
@@ -734,7 +735,7 @@ function Planner({ onReset }) {
                     onDelete={() => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==origIi)}))}
                     onMoveUp={() => { if(origIi>0) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi-1]]=[newItems[origIi-1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(origIi<section.items.length-1) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi+1]]=[newItems[origIi+1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timerStart:it.timerStart?null:Date.now()})}))}
+                    onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})}))}}
                     onAddTime={(secs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
                     onMoveCategory={() => setPuActions({si,ii:origIi,item:section.items[origIi],section,isProject:false})}
                     onEditText={(newText) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,text:newText})}))}
@@ -750,6 +751,11 @@ function Planner({ onReset }) {
                   />
                   );
                 })}
+                {!isCollapsed && (
+                  <div style={{ padding:"8px", fontSize:"12px" }}>
+                    <input type="text" placeholder="+ Add task" onKeyDown={(e) => { if(e.key==="Enter" && e.target.value) { persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:[...s.items,{text:e.target.value,done:false,timeSpent:0,timerStart:null,recurs:"none",urgent:false,deadline:null,completedAt:null,executionDate:null,scheduledTo:null,section:s.id}]})); e.target.value=""; } }} style={{ width:"100%", border:"none", borderBottom:"1px solid rgba(0,0,0,0.1)", background:"transparent", fontSize:"12px", padding:"4px 0", outline:"none" }} />
+                  </div>
+                )}
               </div>
             </div>
             );
@@ -822,7 +828,7 @@ function Planner({ onReset }) {
                     onDelete={() => persistProjects(projects.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
                     onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now()})}))}
+                    onToggleTimer={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})}))}}
                     onAddTime={(secs) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
                     onMoveCategory={() => setPuActions({si,ii,item:section.items[ii],section,isProject:true})}
                     onEditText={(newText) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
@@ -837,6 +843,11 @@ function Planner({ onReset }) {
                     }}
                   />
                 ))}
+                {!isCollapsed && (
+                  <div style={{ padding:"8px", fontSize:"12px" }}>
+                    <input type="text" placeholder="+ Add task" onKeyDown={(e) => { if(e.key==="Enter" && e.target.value) { persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:[...s.items,{text:e.target.value,done:false,timeSpent:0,timerStart:null,recurs:"none",urgent:false,deadline:null,completedAt:null,executionDate:null,scheduledTo:null,section:s.id}]})); e.target.value=""; } }} style={{ width:"100%", border:"none", borderBottom:"1px solid rgba(0,0,0,0.1)", background:"transparent", fontSize:"12px", padding:"4px 0", outline:"none" }} />
+                  </div>
+                )}
               </div>
             </div>
             );
@@ -948,7 +959,7 @@ function Planner({ onReset }) {
                             <span>{category.emoji} {category.label}</span>
                           </div>
                           {categoryItems.map((item, ii) => (
-                            <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                            <div key={`${category.id}-${ii}-${item.text}`} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
                               {item.text}
                               {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
                             </div>
@@ -961,7 +972,7 @@ function Planner({ onReset }) {
                       <div style={{ marginBottom:"12px" }}>
                         <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>📝 Uncategorized</div>
                         {done.filter(item => item.section === null).map((item, ii) => (
-                          <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                          <div key={`uncategorized-${ii}-${item.text}`} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
                             {item.text}
                             {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
                           </div>
@@ -973,7 +984,7 @@ function Planner({ onReset }) {
                       <div style={{ marginBottom:"12px", opacity:0.6 }}>
                         <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>🗑️ Deleted Categories</div>
                         {done.filter(item => item.section !== null && !allCategoryIds.has(item.section)).map((item, ii) => (
-                          <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                          <div key={`deleted-${ii}-${item.text}`} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
                             {item.text}
                             {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
                           </div>
