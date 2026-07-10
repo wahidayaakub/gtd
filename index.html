@@ -107,7 +107,7 @@ const fmtTime = (secs) => {
 };
 
 // ─── SectionHeader ────────────────────────────────────────────────────────────
-function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, onSetEmoji, onSetColor, onDelete }) {
+function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, onSetEmoji, onSetColor, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(section.label);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -135,6 +135,12 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
           {section.label}
         </button>
       )}
+      
+      {/* move up/down */}
+      <div style={{ display:"flex", gap:"2px" }}>
+        <button onClick={onMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"12px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
+        <button onClick={onMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"12px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
+      </div>
       
       {/* color picker */}
       <div style={{ position:"relative" }}>
@@ -493,13 +499,13 @@ function Planner({ onReset }) {
   const [draggedTask, setDraggedTask] = useState(null);
   const [collapsedSections, setCollapsedSections] = useState({}); // Collapsed by default via getCollapsedState
   
-  // Initialize collapsed state - check if key exists, default to true (collapsed)
+  // Initialize collapsed state - check if key exists, default to true (COLLAPSED by default)
   const getCollapsedState = (key) => {
     if (collapsedSections.hasOwnProperty(key)) return collapsedSections[key];
-    return true; // default collapsed
+    return true; // default COLLAPSED
   };
-  const [doneSort, setDoneSort] = useState("date"); // "date" | "category"
-  const [futureSort, setFutureSort] = useState("deadline"); // "deadline" | "executionDate"
+  const [doneSort, setDoneSort] = useState("all"); // "all" | "date" | "category"
+  const [futureSort, setFutureSort] = useState("all"); // "all" | "deadline" | "executionDate"
 
   const persistToday = (s) => { setTodaySections(s); save(LS_TODAY, s); };
   const persistDone = (d) => { setDone(d); save(LS_DONE, d); };
@@ -595,6 +601,10 @@ function Planner({ onReset }) {
                   onSetEmoji={(emoji) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,emoji}))}
                   onSetColor={(color) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
                   onDelete={() => persistToday(todaySections.filter((_,i) => i!==si))}
+                  onMoveUp={() => { if(si>0) { const newSections=[...todaySections]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistToday(newSections); } }}
+                  onMoveDown={() => { if(si<todaySections.length-1) { const newSections=[...todaySections]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistToday(newSections); } }}
+                  canMoveUp={si>0}
+                  canMoveDown={si<todaySections.length-1}
                 />
                 
                 {/* items - only show if not collapsed */}
@@ -685,6 +695,10 @@ function Planner({ onReset }) {
                   onSetEmoji={(emoji) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,emoji}))}
                   onSetColor={(color) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
                   onDelete={() => persistPowerUp(powerUp.filter((_,i) => i!==si))}
+                  onMoveUp={() => { if(si>0) { const newSections=[...powerUp]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistPowerUp(newSections); } }}
+                  onMoveDown={() => { if(si<powerUp.length-1) { const newSections=[...powerUp]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistPowerUp(newSections); } }}
+                  canMoveUp={si>0}
+                  canMoveDown={si<powerUp.length-1}
                 />
                 
                 {/* items - sorted, only show if not collapsed */}
@@ -768,6 +782,10 @@ function Planner({ onReset }) {
                   onSetEmoji={(emoji) => persistProjects(projects.map((s,i) => i!==si?s:{...s,emoji}))}
                   onSetColor={(color) => persistProjects(projects.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
                   onDelete={() => persistProjects(projects.filter((_,i) => i!==si))}
+                  onMoveUp={() => { if(si>0) { const newSections=[...projects]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistProjects(newSections); } }}
+                  onMoveDown={() => { if(si<projects.length-1) { const newSections=[...projects]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistProjects(newSections); } }}
+                  canMoveUp={si>0}
+                  canMoveDown={si<projects.length-1}
                 />
                 
                 {/* items - only show if not collapsed */}
@@ -831,13 +849,22 @@ function Planner({ onReset }) {
         <div>
           {/* sort options */}
           <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center" }}>
-            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Sort:</span>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
+            <button onClick={() => setDoneSort("all")} style={{ background:doneSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
             <button onClick={() => setDoneSort("date")} style={{ background:doneSort==="date"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Date</button>
             <button onClick={() => setDoneSort("category")} style={{ background:doneSort==="category"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📂 Category</button>
           </div>
           
           <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.45)" }}>Completed tasks ({done.length})</p>
-          {doneSort === "date" ? (
+          {doneSort === "all" ? (
+            // Show all tasks as simple list
+            done.map((item, ii) => (
+              <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                {item.text}
+                {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
+              </div>
+            ))
+          ) : doneSort === "date" ? (
             // Sort by completion date
             [...done].sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).map((item, ii) => (
               <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
@@ -848,14 +875,22 @@ function Planner({ onReset }) {
           ) : (
             // Sort by category (from Future categories) + show orphaned items
             <>
-              {powerUp.map((category) => {
+              {powerUp.map((category, categoryIndex) => {
                 const categoryItems = done.filter(item => item.section === category.id);
                 if (categoryItems.length === 0) return null;
+                const canMoveUp = categoryIndex > 0;
+                const canMoveDown = categoryIndex < powerUp.length - 1;
                 return (
                   <div key={category.id} style={{ marginBottom:"12px" }}>
-                    <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>{category.emoji} {category.label}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>
+                      <div style={{ display:"flex", gap:"2px" }}>
+                        <button onClick={() => { if(canMoveUp) { const newSections=[...powerUp]; [newSections[categoryIndex],newSections[categoryIndex-1]]=[newSections[categoryIndex-1],newSections[categoryIndex]]; persistPowerUp(newSections); } }} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"10px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
+                        <button onClick={() => { if(canMoveDown) { const newSections=[...powerUp]; [newSections[categoryIndex],newSections[categoryIndex+1]]=[newSections[categoryIndex+1],newSections[categoryIndex]]; persistPowerUp(newSections); } }} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"10px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
+                      </div>
+                      <span>{category.emoji} {category.label}</span>
+                    </div>
                     {categoryItems.map((item, ii) => (
-                      <div key={ii} style={{ paddingLeft:"16px", padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                      <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
                         {item.text}
                         {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
                       </div>
@@ -869,7 +904,7 @@ function Planner({ onReset }) {
                 <div style={{ marginBottom:"12px", opacity:0.6 }}>
                   <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>🗑️ Deleted Categories</div>
                   {done.filter(item => !powerUp.some(cat => cat.id === item.section)).map((item, ii) => (
-                    <div key={ii} style={{ paddingLeft:"16px", padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
+                    <div key={ii} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
                       {item.text}
                       {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
                     </div>
