@@ -54,6 +54,37 @@
 </head>
 <body>
 <div id="root"></div>
+
+<!-- Firebase SDK (compat version for non-module use) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+  // Initialize Firebase (with graceful fallback if SDK failed to load)
+  try {
+    if (typeof firebase !== "undefined") {
+      const firebaseConfig = {
+        apiKey: "AIzaSyDp-CFYuWNrIcjRnyvO6aJGpf8KNLGeji0",
+        authDomain: "gerak-e3c50.firebaseapp.com",
+        databaseURL: "https://gerak-e3c50-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "gerak-e3c50",
+        storageBucket: "gerak-e3c50.firebasestorage.app",
+        messagingSenderId: "804424488603",
+        appId: "1:804424488603:web:97769efc418317f45b583e",
+        measurementId: "G-ZH7BLJ2V8K"
+      };
+      firebase.initializeApp(firebaseConfig);
+      window.fbDatabase = firebase.database();
+      console.log("✅ Firebase connected");
+    } else {
+      window.fbDatabase = null;
+      console.warn("⚠️ Firebase SDK not loaded — running offline (localStorage only)");
+    }
+  } catch (e) {
+    window.fbDatabase = null;
+    console.error("Firebase init error:", e);
+  }
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -139,6 +170,44 @@ const migrateDone = (doneTasks) => {
   }));
 };
 const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+// ─── Firebase sync ──────────────────────────────────────────────────────────
+// Each user has a "sync code" (their private key). Same code on any device = synced data.
+const LS_SYNCCODE = "gerak-synccode";
+
+// Generate a random 6-character sync code (easy to type)
+const genSyncCode = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no confusing chars (0/O, 1/I/L)
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+};
+
+// Get or create the user's sync code
+const getSyncCode = () => {
+  let code = localStorage.getItem(LS_SYNCCODE);
+  if (!code) { code = genSyncCode(); localStorage.setItem(LS_SYNCCODE, code); }
+  return code;
+};
+
+const setSyncCode = (code) => { localStorage.setItem(LS_SYNCCODE, code.toUpperCase()); };
+
+// Push all app data to Firebase under this sync code
+const pushToFirebase = (code, data) => {
+  if (!window.fbDatabase || !code) return;
+  try { window.fbDatabase.ref("users/" + code).set({ ...data, updatedAt: Date.now() }); } catch(e) { console.error("Firebase push failed", e); }
+};
+
+// Listen for changes from Firebase (real-time)
+const subscribeToFirebase = (code, callback) => {
+  if (!window.fbDatabase || !code) return () => {};
+  const ref = window.fbDatabase.ref("users/" + code);
+  const handler = ref.on("value", (snapshot) => {
+    const data = snapshot.val();
+    if (data) callback(data);
+  });
+  return () => ref.off("value", handler);
+};
 
 // ─── format time ─────────────────────────────────────────────────────────────
 const fmtTime = (secs) => {
@@ -431,6 +500,65 @@ function MoveTodayCategoryModal({ item, fromSi, sections, onMove, onClose }) {
   );
 }
 
+function SyncModal({ appBg, syncCode, syncStatus, onConnect, onClose }) {
+  const [enteredCode, setEnteredCode] = useState("");
+  const [copied, setCopied] = useState(false);
+  const dark = appBg === "black";
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(syncCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); });
+  };
+
+  const connect = () => {
+    const code = enteredCode.trim().toUpperCase();
+    if (code.length >= 4) { onConnect(code); onClose(); }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:"20px" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:dark?"#333333":"white", borderRadius:"16px", padding:"24px", maxWidth:"420px", width:"100%", border:dark?"1px solid rgba(255,255,255,0.5)":"none", maxHeight:"85vh", overflowY:"auto" }}>
+        <h2 style={{ margin:"0 0 6px", fontSize:"20px", color:dark?"#FFFFFF":"#000000" }}>☁️ Cloud Sync</h2>
+        <p style={{ margin:"0 0 18px", fontSize:"13px", color:dark?"rgba(255,255,255,0.6)":"rgba(0,0,0,0.55)", lineHeight:1.5 }}>
+          Your data syncs automatically across devices using your Sync Code. Use the same code on your phone and desktop to keep them in sync.
+        </p>
+
+        {/* Current sync code */}
+        <div style={{ background:dark?"#1A1A1A":"#F5F1EB", borderRadius:"10px", padding:"16px", marginBottom:"18px", textAlign:"center" }}>
+          <div style={{ fontSize:"11px", color:dark?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.45)", marginBottom:"6px", textTransform:"uppercase", letterSpacing:"1px" }}>Your Sync Code</div>
+          <div style={{ fontSize:"32px", fontWeight:700, letterSpacing:"4px", color:dark?"#FFFFFF":"#000000", marginBottom:"10px", fontFamily:"monospace" }}>{syncCode}</div>
+          <button onClick={copyCode} style={{ background:copied?"#5A9E62":"#E0821E", border:"none", borderRadius:"8px", color:"white", padding:"8px 16px", cursor:"pointer", fontSize:"13px", fontWeight:600 }}>
+            {copied ? "✓ Copied!" : "📋 Copy Code"}
+          </button>
+        </div>
+
+        <div style={{ fontSize:"12px", color:dark?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.45)", marginBottom:"18px", padding:"10px", background:dark?"rgba(90,158,98,0.15)":"rgba(90,158,98,0.1)", borderRadius:"8px", lineHeight:1.5 }}>
+          <strong>Status:</strong> {syncStatus === "synced" ? "✅ Connected & syncing" : syncStatus === "connecting" ? "⏳ Connecting…" : "⚠️ Offline (will sync when online)"}
+        </div>
+
+        {/* Connect to another code */}
+        <div style={{ borderTop:dark?"1px solid rgba(255,255,255,0.15)":"1px solid rgba(0,0,0,0.1)", paddingTop:"18px" }}>
+          <div style={{ fontSize:"13px", fontWeight:600, color:dark?"#FFFFFF":"#000000", marginBottom:"4px" }}>Sync another device</div>
+          <div style={{ fontSize:"12px", color:dark?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.45)", marginBottom:"10px", lineHeight:1.5 }}>
+            On your other device, enter this same code here to load that data. ⚠️ This replaces current data on this device.
+          </div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <input
+              value={enteredCode}
+              onChange={e => setEnteredCode(e.target.value.toUpperCase())}
+              placeholder="Enter code"
+              maxLength={8}
+              style={{ flex:1, border:dark?"1px solid rgba(255,255,255,0.3)":"1px solid rgba(0,0,0,0.2)", borderRadius:"8px", padding:"10px", fontSize:"16px", letterSpacing:"2px", textTransform:"uppercase", background:dark?"#1A1A1A":"white", color:dark?"#FFFFFF":"#000000", fontFamily:"monospace" }}
+            />
+            <button onClick={connect} style={{ background:"#E0821E", border:"none", borderRadius:"8px", color:"white", padding:"10px 18px", cursor:"pointer", fontSize:"13px", fontWeight:700 }}>Connect</button>
+          </div>
+        </div>
+
+        <button onClick={onClose} style={{ width:"100%", background:dark?"#1A1A1A":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:dark?"#FFFFFF":"rgba(0,0,0,0.6)", padding:"11px", cursor:"pointer", fontSize:"13px", marginTop:"18px" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 function BackupModal({ today, done, powerUp, date, projects, appBg, season, onClose }) {
   const [copied, setCopied] = useState(false);
   const [saved,  setSaved]  = useState(false);
@@ -613,10 +741,55 @@ function Planner({ onReset }) {
   const [appBg, setAppBg] = useState("white"); // "white" or "black"
   const [season, setSeason] = useState("spring"); // "winter" | "spring" | "summer" | "autumn" | "grayscale"
 
-  const persistToday = (s) => { setTodaySections(s); save(LS_TODAY, s); };
-  const persistDone = (d) => { setDone(d); save(LS_DONE, d); };
-  const persistPowerUp = (p) => { setPowerUp(p); save(LS_PU, p); };
-  const persistProjects = (p) => { setProjects(p); save(LS_PROJ, p); };
+  // ─── Firebase sync state ───────────────────────────────────────────────
+  const [syncCode, setSyncCodeState] = useState(getSyncCode());
+  const [showSync, setShowSync] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("connecting"); // "connecting" | "synced" | "offline"
+  const isReceivingRef = useRef(false); // prevent echo loop (don't re-push data we just received)
+
+  // Bundle all app data for Firebase
+  const bundleData = (overrides = {}) => ({
+    today:    overrides.today    !== undefined ? overrides.today    : todaySections,
+    done:     overrides.done     !== undefined ? overrides.done     : done,
+    powerUp:  overrides.powerUp  !== undefined ? overrides.powerUp  : powerUp,
+    projects: overrides.projects !== undefined ? overrides.projects : projects,
+    date:     overrides.date     !== undefined ? overrides.date     : date,
+    appBg:    overrides.appBg    !== undefined ? overrides.appBg    : appBg,
+    season:   overrides.season   !== undefined ? overrides.season   : season,
+  });
+
+  // Subscribe to Firebase on mount + when sync code changes
+  useEffect(() => {
+    setSyncStatus("connecting");
+    const unsub = subscribeToFirebase(syncCode, (data) => {
+      isReceivingRef.current = true; // mark that next state changes come from Firebase
+      if (data.today)    { setTodaySections(data.today); save(LS_TODAY, data.today); }
+      if (data.done)     { setDone(data.done); save(LS_DONE, data.done); }
+      if (data.powerUp)  { setPowerUp(data.powerUp); save(LS_PU, data.powerUp); }
+      if (data.projects) { setProjects(data.projects); save(LS_PROJ, data.projects); }
+      if (data.date)     { setDate(data.date); save(LS_DATE, data.date); }
+      if (data.appBg)    setAppBg(data.appBg);
+      if (data.season)   setSeason(data.season);
+      setSyncStatus("synced");
+      setTimeout(() => { isReceivingRef.current = false; }, 100);
+    });
+    // If nothing in Firebase yet, push current local data up
+    setTimeout(() => {
+      if (window.fbDatabase) {
+        window.fbDatabase.ref("users/" + syncCode).once("value").then(snap => {
+          if (!snap.val()) { pushToFirebase(syncCode, bundleData()); }
+          setSyncStatus("synced");
+        }).catch(() => setSyncStatus("offline"));
+      } else { setSyncStatus("offline"); }
+    }, 500);
+    return unsub;
+  }, [syncCode]);
+
+  // Persist functions: update state, save locally, AND push to Firebase
+  const persistToday = (s) => { setTodaySections(s); save(LS_TODAY, s); if(!isReceivingRef.current) pushToFirebase(syncCode, bundleData({today:s})); };
+  const persistDone = (d) => { setDone(d); save(LS_DONE, d); if(!isReceivingRef.current) pushToFirebase(syncCode, bundleData({done:d})); };
+  const persistPowerUp = (p) => { setPowerUp(p); save(LS_PU, p); if(!isReceivingRef.current) pushToFirebase(syncCode, bundleData({powerUp:p})); };
+  const persistProjects = (p) => { setProjects(p); save(LS_PROJ, p); if(!isReceivingRef.current) pushToFirebase(syncCode, bundleData({projects:p})); };
 
   const setDeadlinePU = (si, ii, d) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{ ...s, items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d}) }));
   const setExecutionPU = (si, ii, d) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{ ...s, items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d}) }));
@@ -677,7 +850,7 @@ function Planner({ onReset }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px" }}>
         <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
           <h1 style={{ margin:0, fontSize:"24px", fontWeight:700, color:appBg==="black"?"#FFFFFF":"#000000" }}>Task Tracker</h1>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ padding:"8px", border:`1px solid ${appBg==="black"?"#444444":"rgba(0,0,0,0.2)"}`, borderRadius:"6px", fontSize:"13px", background:appBg==="black"?"#333333":"white", color:appBg==="black"?"#FFFFFF":"#000000" }} />
+          <input type="date" value={date} onChange={e => { const nd=e.target.value; setDate(nd); save(LS_DATE, nd); if(!isReceivingRef.current) pushToFirebase(syncCode, bundleData({date:nd})); }} style={{ padding:"8px", border:`1px solid ${appBg==="black"?"#444444":"rgba(0,0,0,0.2)"}`, borderRadius:"6px", fontSize:"13px", background:appBg==="black"?"#333333":"white", color:appBg==="black"?"#FFFFFF":"#000000" }} />
         </div>
         <div style={{ display:"flex", gap:"8px" }}>
           {tab === "today" && todaySections.some(s => s.items.some(it => it.done)) && (
@@ -740,6 +913,7 @@ function Planner({ onReset }) {
               } 
             }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
+          <button onClick={() => setShowSync(true)} style={{ background: syncStatus==="synced"?"#5A9E62":syncStatus==="connecting"?"#E0A030":"#999999", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }} title={`Sync: ${syncStatus}`}>{syncStatus==="synced"?"☁️ Synced":syncStatus==="connecting"?"☁️ …":"☁️ Offline"}</button>
           <button onClick={() => setShowBackup(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>💾 Backup</button>
           <button onClick={() => setShowRestore(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>📥 Restore</button>
           <button onClick={() => setShowClear(true)} style={{ background:"#C43A3A", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>🗑 Clear</button>
@@ -769,7 +943,7 @@ function Planner({ onReset }) {
         
         {/* BG Toggle Switch - Inline */}
         <button 
-          onClick={() => setAppBg(appBg === "white" ? "black" : "white")}
+          onClick={() => { const nb = appBg === "white" ? "black" : "white"; setAppBg(nb); if(!isReceivingRef.current) pushToFirebase(syncCode, bundleData({appBg:nb})); }}
           style={{
             width: "40px",
             height: "22px",
@@ -1526,6 +1700,7 @@ function Planner({ onReset }) {
       </div>
       {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} appBg={appBg} season={season} onClose={() => setShowBackup(false)} />}
       {showRestore && <RestoreModal appBg={appBg} onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onSetAppBg={setAppBg} onSetSeason={setSeason} onClose={() => setShowRestore(false)} />}
+      {showSync && <SyncModal appBg={appBg} syncCode={syncCode} syncStatus={syncStatus} onConnect={(code) => { setSyncCode(code); setSyncCodeState(code.toUpperCase()); }} onClose={() => setShowSync(false)} />}
     </div>
   );
 }
