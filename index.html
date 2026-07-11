@@ -685,7 +685,13 @@ function Planner({ onReset }) {
               const completedTasks = [];
               todaySections.forEach(section => {
                 section.items.forEach(item => {
-                  if (item.done) completedTasks.push({...item, section: section.id});
+                  if (item.done) {
+                    completedTasks.push({
+                      ...item,
+                      section: section.id,
+                      sectionInfo: { id: section.id, label: section.label, emoji: section.emoji, color: section.color, fontColor: section.fontColor }
+                    });
+                  }
                 });
               });
               if (completedTasks.length > 0) {
@@ -695,10 +701,44 @@ function Planner({ onReset }) {
             }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
           {tab === "future" && powerUp.some(s => s.items.some(it => it.done)) && (
-            <button onClick={() => { const completedTasks = []; powerUp.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push({...item, section: section.id}); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistPowerUp(powerUp.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
+            <button onClick={() => { 
+              const completedTasks = []; 
+              powerUp.forEach(section => { 
+                section.items.forEach(item => { 
+                  if(item.done) {
+                    completedTasks.push({
+                      ...item,
+                      section: section.id,
+                      sectionInfo: { id: section.id, label: section.label, emoji: section.emoji, color: section.color, fontColor: section.fontColor }
+                    });
+                  }
+                }); 
+              }); 
+              if(completedTasks.length > 0) { 
+                persistDone([...done, ...completedTasks]); 
+                persistPowerUp(powerUp.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); 
+              } 
+            }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
           {tab === "projects" && projects.some(s => s.items.some(it => it.done)) && (
-            <button onClick={() => { const completedTasks = []; projects.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push({...item, section: section.id}); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistProjects(projects.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
+            <button onClick={() => { 
+              const completedTasks = []; 
+              projects.forEach(section => { 
+                section.items.forEach(item => { 
+                  if(item.done) {
+                    completedTasks.push({
+                      ...item,
+                      section: section.id,
+                      sectionInfo: { id: section.id, label: section.label, emoji: section.emoji, color: section.color, fontColor: section.fontColor }
+                    });
+                  }
+                }); 
+              }); 
+              if(completedTasks.length > 0) { 
+                persistDone([...done, ...completedTasks]); 
+                persistProjects(projects.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); 
+              } 
+            }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
           <button onClick={() => setShowBackup(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>💾 Backup</button>
           <button onClick={() => setShowRestore(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>📥 Restore</button>
@@ -992,8 +1032,34 @@ function Planner({ onReset }) {
                       onSetExecutionDate={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
                       onExecuteToday={() => {
                         const item = section.items[ii];
+                        const sectionLabel = section.label;
+                        
+                        // Check if section exists in Today
+                        let existingSection = todaySections.find(s => s.label === sectionLabel);
+                        let updatedToday;
+                        
+                        if (existingSection) {
+                          // Add to existing section
+                          updatedToday = todaySections.map(s => 
+                            s.label === sectionLabel ? {...s, items: [...s.items, item]} : s
+                          );
+                        } else {
+                          // Create new section with same color/emoji/fontColor
+                          const newSection = {
+                            id: `today-${Date.now()}`,
+                            label: sectionLabel,
+                            emoji: section.emoji,
+                            color: section.color,
+                            accent: section.accent,
+                            fontColor: section.fontColor,
+                            items: [item]
+                          };
+                          updatedToday = [...todaySections, newSection];
+                        }
+                        
+                        // Remove from Future
                         persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
-                        persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));
+                        persistToday(updatedToday);
                       }}
                     />
                   ))}
@@ -1195,8 +1261,34 @@ function Planner({ onReset }) {
                       onSetExecutionDate={(d) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
                       onExecuteToday={() => {
                         const item = section.items[ii];
+                        const sectionLabel = section.label;
+                        
+                        // Check if section exists in Today
+                        let existingSection = todaySections.find(s => s.label === sectionLabel);
+                        let updatedToday;
+                        
+                        if (existingSection) {
+                          // Add to existing section
+                          updatedToday = todaySections.map(s => 
+                            s.label === sectionLabel ? {...s, items: [...s.items, item]} : s
+                          );
+                        } else {
+                          // Create new section with same color/emoji/fontColor
+                          const newSection = {
+                            id: `today-${Date.now()}`,
+                            label: sectionLabel,
+                            emoji: section.emoji,
+                            color: section.color,
+                            accent: section.accent,
+                            fontColor: section.fontColor,
+                            items: [item]
+                          };
+                          updatedToday = [...todaySections, newSection];
+                        }
+                        
+                        // Remove from Projects
                         persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
-                        persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));
+                        persistToday(updatedToday);
                       }}
                     />
                   ))}
