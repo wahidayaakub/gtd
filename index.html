@@ -779,8 +779,24 @@ function Planner({ onReset }) {
                   isCollapsed={isCollapsed}
                   onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`today-${si}`]: !isCollapsed})}
                   onRename={(name) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,label:name}))}
-                  onSetEmoji={(emoji) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,emoji}))}
-                  onSetColor={(color) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
+                  onSetEmoji={(emoji) => {
+                    const sectionLabel = section.label;
+                    const updatedToday = todaySections.map((s,i) => i!==si?s:{...s,emoji});
+                    const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                    const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                    persistToday(updatedToday);
+                    persistPowerUp(updatedPowerUp);
+                    persistProjects(updatedProjects);
+                  }}
+                  onSetColor={(color) => {
+                    const sectionLabel = section.label;
+                    const updatedToday = todaySections.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent});
+                    const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                    const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                    persistToday(updatedToday);
+                    persistPowerUp(updatedPowerUp);
+                    persistProjects(updatedProjects);
+                  }}
                   onSetFontColor={(fc) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
                   onDelete={() => persistToday(todaySections.filter((_,i) => i!==si))}
                   onMoveUp={() => moveSectionUp(si)}
@@ -922,8 +938,24 @@ function Planner({ onReset }) {
                     isCollapsed={isCollapsed}
                     onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`future-${si}`]: !isCollapsed})}
                     onRename={(name) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
-                    onSetEmoji={(emoji) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,emoji}))}
-                    onSetColor={(color) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
+                    onSetEmoji={(emoji) => {
+                      const sectionLabel = section.label;
+                      const updatedPowerUp = powerUp.map((s,i) => i!==si?s:{...s,emoji});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      persistPowerUp(updatedPowerUp);
+                      persistToday(updatedToday);
+                      persistProjects(updatedProjects);
+                    }}
+                    onSetColor={(color) => {
+                      const sectionLabel = section.label;
+                      const updatedPowerUp = powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      persistPowerUp(updatedPowerUp);
+                      persistToday(updatedToday);
+                      persistProjects(updatedProjects);
+                    }}
                     onSetFontColor={(fc) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
                     onDelete={() => persistPowerUp(powerUp.filter((_,i) => i!==si))}
                     onMoveUp={() => { if(si>0) { const newSections=[...powerUp]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistPowerUp(newSections); } }}
@@ -1109,8 +1141,24 @@ function Planner({ onReset }) {
                     isCollapsed={isCollapsed}
                     onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`projects-${si}`]: !isCollapsed})}
                     onRename={(name) => persistProjects(projects.map((s,i) => i!==si?s:{...s,label:name}))}
-                    onSetEmoji={(emoji) => persistProjects(projects.map((s,i) => i!==si?s:{...s,emoji}))}
-                    onSetColor={(color) => persistProjects(projects.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
+                    onSetEmoji={(emoji) => {
+                      const sectionLabel = section.label;
+                      const updatedProjects = projects.map((s,i) => i!==si?s:{...s,emoji});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      persistProjects(updatedProjects);
+                      persistToday(updatedToday);
+                      persistPowerUp(updatedPowerUp);
+                    }}
+                    onSetColor={(color) => {
+                      const sectionLabel = section.label;
+                      const updatedProjects = projects.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      persistProjects(updatedProjects);
+                      persistToday(updatedToday);
+                      persistPowerUp(updatedPowerUp);
+                    }}
                     onSetFontColor={(fc) => persistProjects(projects.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
                     onDelete={() => persistProjects(projects.filter((_,i) => i!==si))}
                     onMoveUp={() => { if(si>0) { const newSections=[...projects]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistProjects(newSections); } }}
