@@ -211,7 +211,7 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
       
       {/* color picker */}
       <div ref={colorPickerRef} style={{ position:"relative" }}>
-        <button onClick={() => setShowColorPicker(!showColorPicker)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.35)" }}>🎨</button>
+        <button onClick={() => setShowColorPicker(!showColorPicker)} style={{ background:"none", border:"1px solid white", cursor:"pointer", fontSize:"12px", color:"#000000", borderRadius:"4px", padding:"2px 6px" }}>🎨</button>
         {showColorPicker && (
           <div style={{ position:"absolute", top:"30px", right:0, background:"white", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"8px", boxShadow:"0 4px 12px rgba(0,0,0,0.1)", zIndex:100, padding:"8px", minWidth:"280px" }}>
             {Object.entries(COLOR_GROUPS).map(([group, colors]) => (
@@ -229,7 +229,7 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
       </div>
 
       {/* Font Color Toggle */}
-      <button onClick={() => onSetFontColor(section.fontColor === "white" ? "black" : "white")} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"16px", color:section.fontColor==="white"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.35)", opacity:0.7 }} title={`Font: ${section.fontColor || "black"}`}>
+      <button onClick={() => onSetFontColor(section.fontColor === "white" ? "black" : "white")} style={{ background:"none", border:"1px solid white", cursor:"pointer", fontSize:"16px", color:section.fontColor==="white"?"#FFFFFF":"#000000", borderRadius:"4px", padding:"2px 6px" }} title={`Font: ${section.fontColor || "black"}`}>
         ▪️
       </button>
       
@@ -240,7 +240,7 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
 }
 
 // ─── TaskItem ─────────────────────────────────────────────────────────────────
-function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown, onToggleTimer, onAddTime, onMoveCategory, onEditText, onEditRecurs, onToggleUrgent, onSetDeadline, onSetExecutionDate, onExecuteToday, accent, isDragging, onDragStart, onDragOver, onDrop, onDragEnd }) {
+function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown, onToggleTimer, onAddTime, onMoveCategory, onEditText, onEditRecurs, onToggleUrgent, onSetDeadline, onSetExecutionDate, onExecuteToday, accent, fontColor, isDragging, onDragStart, onDragOver, onDrop, onDragEnd }) {
   const [addingTime, setAddingTime] = useState(false);
   const [mins, setMins] = useState("");
   const [live, setLive] = useState(0);
@@ -312,7 +312,7 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
             onKeyDown={e => { if(e.key==="Enter"){ onEditText(editText.trim() || item.text); setEditing(false); } if(e.key==="Escape"){ setEditText(item.text); setEditing(false); } }}
             style={{ flex:1, background:"transparent", border:"none", borderBottom:`2px solid ${accent}`, outline:"none", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", padding:"2px 0", color:"rgba(0,0,0,0.78)" }} />
         ) : (
-          <button onClick={onToggle} onDoubleClick={() => { setEditText(item.text); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", lineHeight:"1.4", color:urgent&&!item.done?"#C43A3A":item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:"normal", padding:0 }}>
+          <button onClick={onToggle} onDoubleClick={() => { setEditText(item.text); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", lineHeight:"1.4", color:urgent&&!item.done?"#C43A3A":item.done?(fontColor==="white"?"rgba(255,255,255,0.4)":"rgba(0,0,0,0.3)"):(fontColor==="white"?"#FFFFFF":"#000000"), textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:"normal", padding:0 }}>
             {item.text}
             {item.executionDate && !item.done && (
               <span style={{ fontSize:"10px", marginLeft:"7px", fontWeight:600, color:item.executionDate===todayStr()?"#5A9E62":"rgba(0,0,0,0.45)", background:item.executionDate===todayStr()?"rgba(90,158,98,0.12)":"rgba(0,0,0,0.06)", borderRadius:"4px", padding:"1px 5px" }}>
@@ -331,12 +331,12 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
         )}
         
         {/* timer button */}
-        <button onClick={onToggleTimer} style={{ background:item.timerStart?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:item.timerStart?"white":"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>
+        <button onClick={onToggleTimer} style={{ background:item.timerStart?"#5A9E62":"#E8E8E8", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:item.timerStart?"white":"#333333", fontWeight:600, flexShrink:0 }}>
           {item.timerStart ? "⏹" : "▶"}
         </button>
         
         {/* +m */}
-        <button onClick={() => setAddingTime(v => !v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 6px", fontSize:"10px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>+m</button>
+        <button onClick={() => setAddingTime(v => !v)} style={{ background:"#E8E8E8", border:"none", borderRadius:"6px", padding:"3px 6px", fontSize:"10px", cursor:"pointer", color:"#333333", fontWeight:600, flexShrink:0 }}>+m</button>
         
         {/* ⋯ menu */}
         <div ref={menuRef} style={{ position:"relative", flexShrink:0 }}>
@@ -431,7 +431,7 @@ function MoveTodayCategoryModal({ item, fromSi, sections, onMove, onClose }) {
   );
 }
 
-function BackupModal({ today, done, powerUp, date, projects, onClose }) {
+function BackupModal({ today, done, powerUp, date, projects, appBg, onClose }) {
   const [copied, setCopied] = useState(false);
   const [saved,  setSaved]  = useState(false);
   const text = JSON.stringify({ today, done, powerUp, date, projects, exportedAt: new Date().toISOString() });
@@ -458,25 +458,25 @@ function BackupModal({ today, done, powerUp, date, projects, onClose }) {
 
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
-        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>📋 Backup</h2>
-        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
+      <div style={{ background:appBg==="black"?"#333333":"white", border:appBg==="black"?"1px solid rgba(255,255,255,0.5)":"none", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px", color:appBg==="black"?"#FFFFFF":"#000000" }}>📋 Backup</h2>
+        <p style={{ fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.6)":"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
           Save as a file to iCloud Drive, or copy the text to Notes/WhatsApp.
         </p>
-        <button onClick={saveFile} style={{ width:"100%", background:saved?"#5A9E62":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"8px", transition:"background 0.2s" }}>
+        <button onClick={saveFile} style={{ width:"100%", background:saved?"#5A9E62":appBg==="black"?"#000000":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"8px", transition:"background 0.2s" }}>
           {saved ? "✓ File saved!" : "💾 Save as file (iCloud Drive)"}
         </button>
-        <button onClick={copy} style={{ width:"100%", background:copied?"#5A9E62":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:copied?"white":"rgba(0,0,0,0.6)", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:600, marginBottom:"14px", transition:"background 0.2s" }}>
+        <button onClick={copy} style={{ width:"100%", background:copied?"#5A9E62":appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:copied?"white":appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:600, marginBottom:"14px", transition:"background 0.2s" }}>
           {copied ? "✓ Copied!" : "📋 Copy to clipboard"}
         </button>
-        <textarea id="bta" readOnly value={text} style={{ width:"100%", height:"80px", borderRadius:"8px", border:"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", color:"rgba(0,0,0,0.55)", resize:"none", boxSizing:"border-box", background:"#F5F1EB" }} />
-        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", marginTop:"8px" }}>Close</button>
+        <textarea id="bta" readOnly value={text} style={{ width:"100%", height:"80px", borderRadius:"8px", border:appBg==="black"?"1px solid rgba(255,255,255,0.2)":"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", color:appBg==="black"?"rgba(255,255,255,0.7)":"rgba(0,0,0,0.55)", resize:"none", boxSizing:"border-box", background:appBg==="black"?"#222222":"#F5F1EB" }} />
+        <button onClick={onClose} style={{ width:"100%", background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", marginTop:"8px" }}>Close</button>
       </div>
     </div>
   );
 }
 
-function RestoreModal({ onRestoreAndReset, onClose }) {
+function RestoreModal({ appBg, onRestoreAndReset, onClose }) {
   const [txt, setTxt] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -504,18 +504,18 @@ function RestoreModal({ onRestoreAndReset, onClose }) {
 
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
-        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>⬆ Restore Backup</h2>
-        <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Load from iCloud file, or paste backup text.</p>
-        <label style={{ display:"block", width:"100%", background:"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"12px", textAlign:"center", boxSizing:"border-box" }}>
+      <div style={{ background:appBg==="black"?"#333333":"white", border:appBg==="black"?"1px solid rgba(255,255,255,0.5)":"none", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px", color:appBg==="black"?"#FFFFFF":"#000000" }}>⬆ Restore Backup</h2>
+        <p style={{ fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.6)":"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Load from iCloud file, or paste backup text.</p>
+        <label style={{ display:"block", width:"100%", background:appBg==="black"?"#000000":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"12px", textAlign:"center", boxSizing:"border-box" }}>
           📂 Load from file (iCloud Drive)
           <input type="file" accept=".json,application/json" onChange={loadFile} style={{ display:"none" }} />
         </label>
-        <textarea value={txt} onChange={e => setTxt(e.target.value)} placeholder="…or paste backup text here" style={{ width:"100%", height:"90px", borderRadius:"8px", border:"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", resize:"none", boxSizing:"border-box" }} />
+        <textarea value={txt} onChange={e => setTxt(e.target.value)} placeholder="…or paste backup text here" style={{ width:"100%", height:"90px", borderRadius:"8px", border:appBg==="black"?"1px solid rgba(255,255,255,0.2)":"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", resize:"none", boxSizing:"border-box", background:appBg==="black"?"#222222":"white", color:appBg==="black"?"rgba(255,255,255,0.7)":"#000000" }} />
         {msg && <div style={{ marginTop:"8px", fontSize:"13px", color:msg.startsWith("✓")?"#5A9E62":"#C43A3A", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>{msg}</div>}
         <div style={{ display:"flex", gap:"8px", marginTop:"10px" }}>
-          <button onClick={() => doRestore(txt)} style={{ flex:1, background:"rgba(0,0,0,0.7)", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700 }}>Restore from text</button>
-          <button onClick={onClose} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
+          <button onClick={() => doRestore(txt)} style={{ flex:1, background:appBg==="black"?"#000000":"rgba(0,0,0,0.7)", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700 }}>Restore from text</button>
+          <button onClick={onClose} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -698,8 +698,8 @@ function Planner({ onReset }) {
           {tab === "projects" && projects.some(s => s.items.some(it => it.done)) && (
             <button onClick={() => { const completedTasks = []; projects.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push({...item, section: section.id}); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistProjects(projects.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
-          <button onClick={() => setShowBackup(true)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>💾 Backup</button>
-          <button onClick={() => setShowRestore(true)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>📥 Restore</button>
+          <button onClick={() => setShowBackup(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>💾 Backup</button>
+          <button onClick={() => setShowRestore(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>📥 Restore</button>
           <button onClick={() => setShowClear(true)} style={{ background:"#C43A3A", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>🗑 Clear</button>
         </div>
       </div>
@@ -769,7 +769,7 @@ function Planner({ onReset }) {
               return (
               <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
               <div 
-                style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.5px solid ${section.accent || "rgba(0,0,0,0.1)"}` }}>
+                style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`, minHeight:"72px", display:"flex", flexDirection:"column" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -795,6 +795,7 @@ function Planner({ onReset }) {
                     index={ii}
                     total={section.items.length}
                     accent={section.accent}
+                    fontColor={section.fontColor}
                     isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
                     onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
                     onDragOver={(e) => e.preventDefault()}
@@ -862,7 +863,7 @@ function Planner({ onReset }) {
                 </div>
               </div>
             ) : (
-              <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ Add section</button>
+              <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:appBg==="black"?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.03)", border:`2px dashed ${appBg==="black"?"rgba(255,255,255,0.2)":"rgba(0,0,0,0.1)"}`, borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.3)" }}>+ Add section</button>
             )}
           </div>
         </>
@@ -911,7 +912,7 @@ function Planner({ onReset }) {
                 return (
                 <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
                 <div 
-                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.5px solid ${section.accent || "rgba(0,0,0,0.1)"}` }}>
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`, minHeight:"72px", display:"flex", flexDirection:"column" }}>
                   {/* section header */}
                   <SectionHeader
                     section={section}
@@ -937,6 +938,7 @@ function Planner({ onReset }) {
                       index={ii}
                       total={section.items.length}
                       accent={section.accent}
+                      fontColor={section.fontColor}
                       isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
                       onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
                       onDragOver={(e) => e.preventDefault()}
@@ -1047,7 +1049,7 @@ function Planner({ onReset }) {
                   </div>
                 </div>
               ) : (
-                <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ Add section</button>
+                <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:appBg==="black"?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.03)", border:`2px dashed ${appBg==="black"?"rgba(255,255,255,0.2)":"rgba(0,0,0,0.1)"}`, borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.3)" }}>+ Add section</button>
               )}
             </div>
           )}
@@ -1097,7 +1099,7 @@ function Planner({ onReset }) {
                 return (
                 <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
                 <div 
-                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.5px solid ${section.accent || "rgba(0,0,0,0.1)"}` }}>
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`, minHeight:"72px", display:"flex", flexDirection:"column" }}>
                   {/* section header */}
                   <SectionHeader
                     section={section}
@@ -1123,6 +1125,7 @@ function Planner({ onReset }) {
                       index={ii}
                       total={section.items.length}
                       accent={section.accent}
+                      fontColor={section.fontColor}
                       isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
                       onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
                       onDragOver={(e) => e.preventDefault()}
@@ -1379,8 +1382,8 @@ function Planner({ onReset }) {
         </div>
       )}
       </div>
-      {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} onClose={() => setShowBackup(false)} />}
-      {showRestore && <RestoreModal onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onClose={() => setShowRestore(false)} />}
+      {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} appBg={appBg} onClose={() => setShowBackup(false)} />}
+      {showRestore && <RestoreModal appBg={appBg} onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onClose={() => setShowRestore(false)} />}
     </div>
   );
 }
