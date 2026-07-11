@@ -771,7 +771,7 @@ function Planner({ onReset }) {
               return (
               <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
               <div 
-                style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`, minHeight:"72px", display:"flex", flexDirection:"column" }}>
+                style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:(section.color==="#FFFFFF"||section.color==="#000000")?`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`:"none", minHeight:"72px", display:"flex", flexDirection:"column" }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -914,7 +914,7 @@ function Planner({ onReset }) {
                 return (
                 <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
                 <div 
-                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`, minHeight:"72px", display:"flex", flexDirection:"column" }}>
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:(section.color==="#FFFFFF"||section.color==="#000000")?`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`:"none", minHeight:"72px", display:"flex", flexDirection:"column" }}>
                   {/* section header */}
                   <SectionHeader
                     section={section}
@@ -1101,7 +1101,7 @@ function Planner({ onReset }) {
                 return (
                 <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
                 <div 
-                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`, minHeight:"72px", display:"flex", flexDirection:"column" }}>
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:(section.color==="#FFFFFF"||section.color==="#000000")?`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`:"none", minHeight:"72px", display:"flex", flexDirection:"column" }}>
                   {/* section header */}
                   <SectionHeader
                     section={section}
