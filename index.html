@@ -16,8 +16,40 @@
   button { font-family: 'Atkinson Hyperlegible', sans-serif; }
   input, textarea, select { font-family: 'Atkinson Hyperlegible', sans-serif; }
   .dragging-task { opacity: 0.5 !important; }
+  .dragging-section { opacity: 0.5 !important; }
   .drag-handle { cursor: grab; }
   .drag-handle:active { cursor: grabbing; }
+  .section-drag-handle { cursor: grab; }
+  .section-drag-handle:active { cursor: grabbing; }
+  
+  /* Responsive grid for Today sections */
+  .today-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 24px;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  /* Mobile: 1 column */
+  @media (max-width: 767px) {
+    .today-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  /* Tablet: 2 columns */
+  @media (min-width: 768px) and (max-width: 1199px) {
+    .today-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  /* Desktop: 4 columns */
+  @media (min-width: 1200px) {
+    .today-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
 </style>
 </head>
 <body>
@@ -35,55 +67,60 @@ const fmtShort = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-GB", { 
 
 // ─── color palette (organized: light→dark by groups) ────────────────────────
 const COLOR_GROUPS = {
-  minimalist: [
-    { hex: "#FFFFFF", accent: "#2C2C2C" },
-    { hex: "#F8F8F8", accent: "#4A4A4A" },
-    { hex: "#F0F0F0", accent: "#5A5A5A" },
+  winter: [
+    { hex: "#E0F4FF", accent: "#0277BD" },
+    { hex: "#B3E5FC", accent: "#0288D1" },
+    { hex: "#81D4FA", accent: "#03A9F4" },
+    { hex: "#E8D3F0", accent: "#7B1FA2" },
+    { hex: "#4FC3F7", accent: "#01579B" },
+    { hex: "#1A237E", accent: "#0D47A1" },
   ],
-  warm: [
-    { hex: "#F8E8D3", accent: "#D9A87A" },
-    { hex: "#F5D9CC", accent: "#D9957A" },
-    { hex: "#F0E6D3", accent: "#C4823A" },
-    { hex: "#E8DDD0", accent: "#8A7A60" },
-    { hex: "#E0D4C0", accent: "#9A7A60" },
-    { hex: "#D4C4A8", accent: "#7A5A40" },
+  spring: [
+    { hex: "#E8F5E9", accent: "#2E7D32" },
+    { hex: "#C8E6C9", accent: "#388E3C" },
+    { hex: "#A5D6A7", accent: "#43A047" },
+    { hex: "#F5D3DD", accent: "#C2185B" },
+    { hex: "#F8E8D3", accent: "#E65100" },
+    { hex: "#2E7D32", accent: "#1B5E20" },
   ],
-  cool: [
-    { hex: "#D3EFF0", accent: "#3A9EB4" },
-    { hex: "#D3E4F0", accent: "#3A7AB4" },
-    { hex: "#D3D8F0", accent: "#3A4EC4" },
-    { hex: "#E8D3F0", accent: "#9A3AC4" },
-    { hex: "#E5D3E8", accent: "#8A3AB4" },
-    { hex: "#D0DDE8", accent: "#5A7A9A" },
+  summer: [
+    { hex: "#FFFDE7", accent: "#F57F17" },
+    { hex: "#FFF9C4", accent: "#F9A825" },
+    { hex: "#F8F0D3", accent: "#FFA000" },
+    { hex: "#FFE0B2", accent: "#FF6F00" },
+    { hex: "#F5D9CC", accent: "#D84315" },
+    { hex: "#F57F17", accent: "#E65100" },
   ],
-  green: [
-    { hex: "#D8F0D3", accent: "#5AB43A" },
-    { hex: "#D3EAD3", accent: "#3A8A3A" },
-    { hex: "#D3E8D3", accent: "#3A7A3A" },
-    { hex: "#CCEAD1", accent: "#2A6A2A" },
+  autumn: [
+    { hex: "#FFE0B2", accent: "#FF6F00" },
+    { hex: "#FFCC80", accent: "#F57F17" },
+    { hex: "#FFB74D", accent: "#E65100" },
+    { hex: "#D4C4A8", accent: "#8D6E63" },
+    { hex: "#E8DDD0", accent: "#A1887F" },
+    { hex: "#5D4037", accent: "#3E2723" },
   ],
-  pink: [
-    { hex: "#F5D3DD", accent: "#D43A5A" },
-    { hex: "#F0D3DD", accent: "#C43A54" },
-    { hex: "#E8D0D0", accent: "#8A3A3A" },
-  ],
-  yellow: [
-    { hex: "#F8F0D3", accent: "#C4B83A" },
-    { hex: "#F5EDD3", accent: "#C4B03A" },
-    { hex: "#E5D9C0", accent: "#A48060" },
+  grayscale: [
+    { hex: "#FFFFFF", accent: "#333333" },
+    { hex: "#E0E0E0", accent: "#616161" },
+    { hex: "#BDBDBD", accent: "#757575" },
+    { hex: "#9E9E9E", accent: "#424242" },
+    { hex: "#424242", accent: "#212121" },
+    { hex: "#1A1A1A", accent: "#000000" },
   ],
 };
 
 // ─── seed ─────────────────────────────────────────────────────────────────────
-const mk = (arr) => arr.map(text => ({ text, done: false, timeSpent: 0, timerStart: null, recurs: "none", urgent: false, deadline: null, completedAt: null, executionDate: null, scheduledTo: null }));
+const mk = (arr) => arr.map(text => ({ text, done: false, estimatedTime: 0, actualTime: 0, timerStart: null, recurs: "none", urgent: false, deadline: null, completedAt: null, executionDate: null, scheduledTo: null }));
 
-const SEED_TODAY = [];
+const SEED_TODAY = [
+  { id:"welcome", label:"Getting Started", emoji:"👋", color:"#F0E6D3", accent:"#C4823A", fontColor:"black", items: mk(["Tap the circle to complete a task","Tap ⋯ to rename, recolour, or delete","Add your own tasks below","Hit + Add section to make your own categories"]) },
+];
 
 // Empty Future seed (shared version)
 const FUTURE_SEED = [];
 
 const POWERUP_SEED = [];
-const buildPowerUp = () => POWERUP_SEED.map(s => ({ ...s, items: s.items.map(text => ({ text, done:false, completedAt:null, scheduledTo:null, deadline:null, timeSpent:0, timerStart:null, recurs:"none", urgent:false, executionDate:null })) }));
+const buildPowerUp = () => POWERUP_SEED.map(s => ({ ...s, items: s.items.map(text => ({ text, done:false, completedAt:null, scheduledTo:null, deadline:null, estimatedTime:0, actualTime:0, timerStart:null, recurs:"none", urgent:false, executionDate:null })) }));
 
 // ─── storage ──────────────────────────────────────────────────────────────
 const LS_TODAY = "wahida-today-v6-shared";
@@ -98,7 +135,7 @@ const load = (key, fallback) => { try { const r = localStorage.getItem(key); ret
 const migrateDone = (doneTasks) => {
   return doneTasks.map(task => ({
     ...task,
-    section: task.section || null, // Add null if missing
+    section: task.section || null,
   }));
 };
 const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
@@ -112,22 +149,46 @@ const fmtTime = (secs) => {
   return `${m}m`;
 };
 
+// Helper to determine if text should be white or dark based on background color
+const isColorDark = (hexColor) => {
+  const hex = hexColor.replace("#", "");
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128; // Dark if brightness is low
+};
+
 // ─── SectionHeader ────────────────────────────────────────────────────────────
-function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, onSetEmoji, onSetColor, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
+function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, onSetEmoji, onSetColor, onSetFontColor, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(section.label);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showEmojiInput, setShowEmojiInput] = useState(false);
   const [emojiInput, setEmojiInput] = useState(section.emoji);
+  const colorPickerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target)) {
+        setShowColorPicker(false);
+      }
+    };
+
+    if (showColorPicker) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showColorPicker]);
 
   return (
     <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px", paddingBottom:"4px" }}>
-      <button onClick={onToggleCollapse} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"11px", color:"rgba(0,0,0,0.3)", lineHeight:1, padding:"0 4px" }}>
-        {isCollapsed ? "▶" : "↓"}
+      <button onClick={onToggleCollapse} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"11px", color:section.fontColor==="white"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.3)", lineHeight:1, padding:"0 4px" }}>
+        {isCollapsed ? "▶" : "▼"}
       </button>
       
       {showEmojiInput ? (
-        <input autoFocus value={emojiInput} maxLength="2" onChange={e => setEmojiInput(e.target.value)} onBlur={() => { onSetEmoji(emojiInput || section.emoji); setShowEmojiInput(false); }} onKeyDown={e => { if(e.key==="Enter"){ onSetEmoji(emojiInput || section.emoji); setShowEmojiInput(false); } if(e.key==="Escape") setShowEmojiInput(false); }} style={{ width:"30px", fontSize:"16px", border:"1px solid rgba(0,0,0,0.2)", borderRadius:"4px", padding:"2px", textAlign:"center" }} />
+        <input autoFocus value={emojiInput} maxLength="2" onChange={e => setEmojiInput(e.target.value)} onBlur={() => { onSetEmoji(emojiInput || section.emoji); setShowEmojiInput(false); }} onKeyDown={e => { if(e.key==="Enter"){ onSetEmoji(emojiInput || section.emoji); setShowEmojiInput(false); } if(e.key==="Escape") setShowEmojiInput(false); }} style={{ width:"30px", fontSize:"16px", border:`1px solid ${section.fontColor==="white"?"rgba(255,255,255,0.3)":"rgba(0,0,0,0.2)"}`, borderRadius:"4px", padding:"2px", textAlign:"center", background:section.fontColor==="white"?"rgba(0,0,0,0.2)":"transparent", color:section.fontColor==="white"?"#FFFFFF":"#000000" }} />
       ) : (
         <button onClick={() => setShowEmojiInput(true)} style={{ background:"none", border:"none", fontSize:"18px", cursor:"pointer", padding:"0", lineHeight:1 }}>
           {section.emoji}
@@ -135,21 +196,21 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
       )}
       
       {editing ? (
-        <input autoFocus value={editName} onChange={e => setEditName(e.target.value)} onBlur={() => { onRename(editName.trim() || section.label); setEditing(false); }} onKeyDown={e => { if(e.key==="Enter"){ onRename(editName.trim() || section.label); setEditing(false); } if(e.key==="Escape"){ setEditName(section.label); setEditing(false); } }} style={{ flex:1, fontSize:"14px", fontWeight:700, border:"1px solid rgba(0,0,0,0.3)", borderRadius:"4px", background:"transparent", outline:"none", padding:"2px 6px" }} />
+        <input autoFocus value={editName} onChange={e => setEditName(e.target.value)} onBlur={() => { onRename(editName.trim() || section.label); setEditing(false); }} onKeyDown={e => { if(e.key==="Enter"){ onRename(editName.trim() || section.label); setEditing(false); } if(e.key==="Escape"){ setEditName(section.label); setEditing(false); } }} style={{ flex:1, fontSize:"14px", fontWeight:700, border:`1px solid ${section.fontColor==="white"?"rgba(255,255,255,0.3)":"rgba(0,0,0,0.3)"}`, borderRadius:"4px", background:section.fontColor==="white"?"rgba(0,0,0,0.2)":"transparent", outline:"none", padding:"2px 6px", color:section.fontColor==="white"?"#FFFFFF":"#000000" }} />
       ) : (
-        <button onClick={() => { setEditName(section.label); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontSize:"14px", fontWeight:700, color:"rgba(0,0,0,0.7)" }}>
+        <button onClick={() => { setEditName(section.label); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontSize:"14px", fontWeight:700, color:section.fontColor==="white"?"#FFFFFF":"rgba(0,0,0,0.7)" }}>
           {section.label}
         </button>
       )}
       
-      {/* move up/down */}
+      {/* move up/down - vertical stack */}
       <div style={{ display:"flex", gap:"2px" }}>
-        <button onClick={onMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"12px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>↑</button>
-        <button onClick={onMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"12px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>↓</button>
+        <button onClick={onMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"12px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
+        <button onClick={onMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"12px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
       </div>
       
       {/* color picker */}
-      <div style={{ position:"relative" }}>
+      <div ref={colorPickerRef} style={{ position:"relative" }}>
         <button onClick={() => setShowColorPicker(!showColorPicker)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.35)" }}>🎨</button>
         {showColorPicker && (
           <div style={{ position:"absolute", top:"30px", right:0, background:"white", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"8px", boxShadow:"0 4px 12px rgba(0,0,0,0.1)", zIndex:100, padding:"8px", minWidth:"280px" }}>
@@ -166,9 +227,14 @@ function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, o
           </div>
         )}
       </div>
+
+      {/* Font Color Toggle */}
+      <button onClick={() => onSetFontColor(section.fontColor === "white" ? "black" : "white")} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"16px", color:section.fontColor==="white"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.35)", opacity:0.7 }} title={`Font: ${section.fontColor || "black"}`}>
+        ▪️
+      </button>
       
       {/* delete */}
-      <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"#C43A3A" }}>✕</button>
+      <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"#4A4A4A" }}>✕</button>
     </div>
   );
 }
@@ -187,7 +253,8 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
     return () => clearInterval(interval.current);
   }, [item.timerStart]);
 
-  const totalSecs = (item.timeSpent || 0) + live;
+  const estSecs = item.estimatedTime || 0;
+  const actSecs = (item.actualTime || 0) + live;
   const urgent = item.urgent || item.text.includes("⚡");
   
   const isOverdue = item.deadline && item.deadline < todayStr() && !item.done;
@@ -196,6 +263,20 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
   const [showMenu, setShowMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(item.text);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showMenu]);
 
   return (
     <div 
@@ -212,10 +293,10 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
         {/* drag handle */}
         <div className="drag-handle" style={{ display:"flex", flexDirection:"column", flexShrink:0, fontSize:"10px", color:"rgba(0,0,0,0.15)" }}>⋮⋮</div>
         
-        {/* ↑↓ */}
+        {/* ▲▼ */}
         <div style={{ display:"flex", flexDirection:"column", flexShrink:0 }}>
-          <button onClick={onMoveUp} disabled={index===0} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>↑</button>
-          <button onClick={onMoveDown} disabled={index===total-1} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===total-1?"default":"pointer", fontSize:"8px", color:index===total-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>↓</button>
+          <button onClick={onMoveUp} disabled={index===0} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▲</button>
+          <button onClick={onMoveDown} disabled={index===total-1} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===total-1?"default":"pointer", fontSize:"8px", color:index===total-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▼</button>
         </div>
         
         {/* checkbox */}
@@ -231,7 +312,7 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
             onKeyDown={e => { if(e.key==="Enter"){ onEditText(editText.trim() || item.text); setEditing(false); } if(e.key==="Escape"){ setEditText(item.text); setEditing(false); } }}
             style={{ flex:1, background:"transparent", border:"none", borderBottom:`2px solid ${accent}`, outline:"none", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", padding:"2px 0", color:"rgba(0,0,0,0.78)" }} />
         ) : (
-          <button onClick={onToggle} onDoubleClick={() => { setEditText(item.text); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", lineHeight:"1.4", color:item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:urgent&&!item.done?"italic":"normal", padding:0 }}>
+          <button onClick={onToggle} onDoubleClick={() => { setEditText(item.text); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", lineHeight:"1.4", color:urgent&&!item.done?"#C43A3A":item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:"normal", padding:0 }}>
             {item.text}
             {item.executionDate && !item.done && (
               <span style={{ fontSize:"10px", marginLeft:"7px", fontWeight:600, color:item.executionDate===todayStr()?"#5A9E62":"rgba(0,0,0,0.45)", background:item.executionDate===todayStr()?"rgba(90,158,98,0.12)":"rgba(0,0,0,0.06)", borderRadius:"4px", padding:"1px 5px" }}>
@@ -243,7 +324,7 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
                 {isOverdue?"⚠ ":isDueToday?"⏰ ":"⏳ "}{fmtShort(item.deadline)}
               </span>
             )}
-            {totalSecs > 0 && <span style={{ fontSize:"10px", marginLeft:"6px", color:item.timerStart?"#5A9E62":"rgba(0,0,0,0.35)", fontWeight:600, fontStyle:"normal" }}>⏱ {fmtTime(totalSecs)}{item.timerStart?" ●":""}</span>}
+            {(estSecs > 0 || actSecs > 0) && <span style={{ fontSize:"10px", marginLeft:"6px", color:item.timerStart?"#5A9E62":"rgba(0,0,0,0.35)", fontWeight:600, fontStyle:"normal" }}>⏱ {estSecs > 0 ? `EST ${fmtTime(estSecs)}` : ""}{estSecs > 0 && actSecs > 0 ? " | " : ""}{actSecs > 0 ? `ACT ${fmtTime(actSecs)}` : ""}{item.timerStart?" ●":""}</span>}
             {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"6px", opacity:0.4, fontStyle:"italic", fontWeight:400 }}>✓ {fmtShort(item.completedAt)}</span>}
             {item.recurs && item.recurs !== "none" && <span style={{ marginLeft:"6px", fontSize:"11px", color:"rgba(0,0,0,0.45)" }}>🔄 {item.recurs}</span>}
           </button>
@@ -258,7 +339,7 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
         <button onClick={() => setAddingTime(v => !v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 6px", fontSize:"10px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600, flexShrink:0 }}>+m</button>
         
         {/* ⋯ menu */}
-        <div style={{ position:"relative", flexShrink:0 }}>
+        <div ref={menuRef} style={{ position:"relative", flexShrink:0 }}>
           <button onClick={() => setShowMenu(v => !v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"12px", cursor:"pointer", color:"rgba(0,0,0,0.4)", fontWeight:700, lineHeight:1 }}>⋯</button>
           {showMenu && (
             <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"200px" }}>
@@ -278,13 +359,13 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
               
               {/* Execution date */}
               <div style={{ borderTop:"1px solid rgba(0,0,0,0.05)", padding:"8px 14px", display:"flex", gap:"6px", alignItems:"center" }}>
-                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)", flex:"1" }}>📅 Exec</span>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)", flex:"1" }}>📅 Execution</span>
                 <input type="date" value={item.executionDate || ""} onChange={e => { onSetExecutionDate(e.target.value || null); setShowMenu(false); }} style={{ flex:"1", padding:"4px", fontSize:"11px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"4px" }} />
               </div>
               
               {/* Deadline */}
               <div style={{ borderTop:"1px solid rgba(0,0,0,0.05)", padding:"8px 14px", display:"flex", gap:"6px", alignItems:"center" }}>
-                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)", flex:"1" }}>⏳ Dead</span>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)", flex:"1" }}>⏳ Deadline</span>
                 <input type="date" value={item.deadline || ""} onChange={e => { onSetDeadline(e.target.value || null); setShowMenu(false); }} style={{ flex:"1", padding:"4px", fontSize:"11px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"4px" }} />
               </div>
               
@@ -322,6 +403,13 @@ function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown
     </div>
   );
 }
+
+// ─── Timer Helper: Pause & Accumulate ──────────────────────────────────────────
+const toggleTimer = (item) => ({
+  ...item,
+  timerStart: item.timerStart ? null : Date.now(),
+  actualTime: item.timerStart ? (item.actualTime || 0) + Math.floor((Date.now() - item.timerStart) / 1000) : item.actualTime
+});
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 function MoveTodayCategoryModal({ item, fromSi, sections, onMove, onClose }) {
@@ -496,7 +584,6 @@ function Planner({ onReset }) {
   const [date, setDate] = useState(load(LS_DATE, todayStr()));
   const [tab, setTab] = useState("today");
   const [addingSection, setAddingSection] = useState(false);
-  const [addingTask, setAddingTask] = useState(null);
   const [newSecName, setNewSecName] = useState("");
   const [showBackup, setShowBackup] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
@@ -504,8 +591,10 @@ function Planner({ onReset }) {
   const [movingItem, setMovingItem] = useState(null);
   const [puActions, setPuActions] = useState(null);
   const [draggedTask, setDraggedTask] = useState(null);
-  const [collapsedSections, setCollapsedSections] = useState({}); // Collapsed by default via getCollapsedState
-  const [draggedSection, setDraggedSection] = useState(null); // For dragging sections
+  const [draggedSection, setDraggedSection] = useState(null);
+  const [collapsedSections, setCollapsedSections] = useState({}); // Collapsed by default
+  const [addingItemInSection, setAddingItemInSection] = useState(null); // Track which section is adding an item
+  const [newItemText, setNewItemText] = useState({});
   
   // Initialize collapsed state - check if key exists, default to true (COLLAPSED by default)
   const getCollapsedState = (key) => {
@@ -514,6 +603,13 @@ function Planner({ onReset }) {
   };
   const [doneSort, setDoneSort] = useState("all"); // "all" | "date" | "category"
   const [futureSort, setFutureSort] = useState("all"); // "all" | "deadline" | "executionDate"
+  const [futureFilterCat, setFutureFilterCat] = useState("all"); // Category filter for deadline/execution views
+  const [projectsSort, setProjectsSort] = useState("all"); // "all" | "deadline" | "executionDate"
+  const [projectsFilterCat, setProjectsFilterCat] = useState("all"); // Category filter for deadline/execution views
+  const [doneFilterCat, setDoneFilterCat] = useState("all"); // Category filter for Done tab
+  const [doneFilterMonth, setDoneFilterMonth] = useState("all"); // Month filter for Done tab
+  const [appBg, setAppBg] = useState("white"); // "white" or "black"
+  const [season, setSeason] = useState("spring"); // "winter" | "spring" | "summer" | "autumn" | "grayscale"
 
   const persistToday = (s) => { setTodaySections(s); save(LS_TODAY, s); };
   const persistDone = (d) => { setDone(d); save(LS_DONE, d); };
@@ -539,21 +635,55 @@ function Planner({ onReset }) {
     }));
   };
 
+  // Add item to section
+  const addItemToSection = (tabName, si, text) => {
+    if (!text.trim()) return;
+    const newItem = { text: text.trim(), done: false, estimatedTime: 0, actualTime: 0, timerStart: null, recurs: "none", urgent: false, deadline: null, completedAt: null, executionDate: null, scheduledTo: null };
+    if (tabName === "today") {
+      persistToday(todaySections.map((s,i) => i!==si?s:{...s, items: [...s.items, newItem]}));
+      setNewItemText({...newItemText, [si]: ""});
+    } else if (tabName === "future") {
+      persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s, items: [...s.items, newItem]}));
+      setNewItemText({...newItemText, [`future-${si}`]: ""});
+    } else if (tabName === "projects") {
+      persistProjects(projects.map((s,i) => i!==si?s:{...s, items: [...s.items, newItem]}));
+      setNewItemText({...newItemText, [`projects-${si}`]: ""});
+    }
+  };
+
+  // Move sections vertically (for Today tab)
+  const moveSectionUp = (si) => {
+    if (si > 0) {
+      const newSections = [...todaySections];
+      [newSections[si], newSections[si-1]] = [newSections[si-1], newSections[si]];
+      persistToday(newSections);
+    }
+  };
+
+  const moveSectionDown = (si) => {
+    if (si < todaySections.length - 1) {
+      const newSections = [...todaySections];
+      [newSections[si], newSections[si+1]] = [newSections[si+1], newSections[si]];
+      persistToday(newSections);
+    }
+  };
+
   return (
-    <div style={{ maxWidth:"1200px", margin:"0 auto", padding:"16px" }}>
+    <div style={{ minHeight:"100vh", background:appBg==="black"?"#1A1A1A":"#FFFFFF", padding:"16px", transition:"background 0.3s" }}>
+      <div style={{ maxWidth:"1200px", margin:"0 auto" }}>
       {/* header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px" }}>
         <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
-          <h1 style={{ margin:0, fontSize:"24px", fontWeight:700 }}>Task Tracker</h1>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ padding:"8px", border:"1px solid rgba(0,0,0,0.2)", borderRadius:"6px", fontSize:"13px" }} />
+          <h1 style={{ margin:0, fontSize:"24px", fontWeight:700, color:appBg==="black"?"#FFFFFF":"#000000" }}>Task Tracker</h1>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ padding:"8px", border:`1px solid ${appBg==="black"?"#444444":"rgba(0,0,0,0.2)"}`, borderRadius:"6px", fontSize:"13px", background:appBg==="black"?"#333333":"white", color:appBg==="black"?"#FFFFFF":"#000000" }} />
         </div>
         <div style={{ display:"flex", gap:"8px" }}>
-          {tab === "today" && (
+          {tab === "today" && todaySections.some(s => s.items.some(it => it.done)) && (
             <button onClick={() => {
               const completedTasks = [];
               todaySections.forEach(section => {
                 section.items.forEach(item => {
-                  if (item.done) completedTasks.push(item);
+                  if (item.done) completedTasks.push({...item, section: section.id});
                 });
               });
               if (completedTasks.length > 0) {
@@ -562,6 +692,12 @@ function Planner({ onReset }) {
               }
             }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
+          {tab === "future" && powerUp.some(s => s.items.some(it => it.done)) && (
+            <button onClick={() => { const completedTasks = []; powerUp.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push({...item, section: section.id}); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistPowerUp(powerUp.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
+          )}
+          {tab === "projects" && projects.some(s => s.items.some(it => it.done)) && (
+            <button onClick={() => { const completedTasks = []; projects.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push({...item, section: section.id}); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistProjects(projects.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
+          )}
           <button onClick={() => setShowBackup(true)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>💾 Backup</button>
           <button onClick={() => setShowRestore(true)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>📥 Restore</button>
           <button onClick={() => setShowClear(true)} style={{ background:"#C43A3A", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>🗑 Clear</button>
@@ -569,7 +705,7 @@ function Planner({ onReset }) {
       </div>
 
       {/* tabs */}
-      <div style={{ display:"flex", gap:"8px", marginBottom:"24px", borderBottom:"2px solid rgba(0,0,0,0.08)", paddingBottom:"0" }}>
+      <div style={{ display:"flex", gap:"8px", marginBottom:"24px", borderBottom:`2px solid ${appBg==="black"?"#444444":"rgba(0,0,0,0.08)"}`, paddingBottom:"0", alignItems:"center" }}>
         {["today", "future", "projects", "done"].map(t => (
           <button
             key={t}
@@ -581,24 +717,59 @@ function Planner({ onReset }) {
               cursor:"pointer",
               fontSize:"14px",
               fontWeight: t === tab ? 700 : 400,
-              borderBottom: t === tab ? "3px solid rgba(0,0,0,0.6)" : "none",
-              color: t === tab ? "rgba(0,0,0,0.8)" : "rgba(0,0,0,0.45)",
+              borderBottom: t === tab ? `3px solid ${appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)"}` : "none",
+              color: t === tab ? (appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.8)") : (appBg==="black"?"rgba(255,255,255,0.45)":"rgba(0,0,0,0.45)"),
               marginBottom:"-2px"
             }}>
             {t === "today" ? "Today" : t === "future" ? "Future" : t === "projects" ? "Projects" : "Done"}
           </button>
         ))}
+        
+        {/* BG Toggle Switch - Inline */}
+        <button 
+          onClick={() => setAppBg(appBg === "white" ? "black" : "white")}
+          style={{
+            width: "40px",
+            height: "22px",
+            background: appBg === "white" ? "#FFFFFF" : "#1A1A1A",
+            border: `2px solid ${appBg === "white" ? "#000000" : "#FFFFFF"}`,
+            borderRadius: "11px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: appBg === "white" ? "flex-start" : "flex-end",
+            padding: "1px",
+            transition: "all 0.3s ease",
+            marginLeft: "auto",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.1)"
+          }}
+        >
+          <div style={{
+            width: "16px",
+            height: "16px",
+            background: appBg === "white" ? "#FFD700" : "#4A90E2",
+            borderRadius: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "10px",
+            transition: "all 0.3s ease"
+          }}>
+            {appBg === "white" ? "☀️" : "🌙"}
+          </div>
+        </button>
       </div>
 
       {/* content - Today */}
       {tab === "today" && (
         <>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:"16px", marginBottom:"24px" }}>
+          <div className="today-grid">
             {todaySections.map((section, si) => {
               const isCollapsed = getCollapsedState(`today-${si}`);
               return (
-              <div key={si} style={{ breakInside:"avoid" }} draggable onDragStart={(e) => { setDraggedSection({si, tab:"today"}); e.dataTransfer.effectAllowed="move"; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if(draggedSection?.tab==="today" && draggedSection?.si!==si) { const newSections=[...todaySections]; const [m]=newSections.splice(draggedSection.si,1); newSections.splice(si,0,m); persistToday(newSections); } setDraggedSection(null); }} onDragEnd={() => setDraggedSection(null)} style={{ opacity: draggedSection?.si===si && draggedSection?.tab==="today" ? 0.5 : 1, cursor:"grab" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"70px" }}>
+              <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
+              <div 
+                style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.5px solid ${section.accent || "rgba(0,0,0,0.1)"}` }}>
                 {/* section header */}
                 <SectionHeader
                   section={section}
@@ -608,9 +779,10 @@ function Planner({ onReset }) {
                   onRename={(name) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,label:name}))}
                   onSetEmoji={(emoji) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,emoji}))}
                   onSetColor={(color) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
+                  onSetFontColor={(fc) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
                   onDelete={() => persistToday(todaySections.filter((_,i) => i!==si))}
-                  onMoveUp={() => { if(si>0) { const newSections=[...todaySections]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistToday(newSections); } }}
-                  onMoveDown={() => { if(si<todaySections.length-1) { const newSections=[...todaySections]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistToday(newSections); } }}
+                  onMoveUp={() => moveSectionUp(si)}
+                  onMoveDown={() => moveSectionDown(si)}
                   canMoveUp={si>0}
                   canMoveDown={si<todaySections.length-1}
                 />
@@ -628,12 +800,13 @@ function Planner({ onReset }) {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
                     onDragEnd={() => setDraggedTask(null)}
-                    onToggle={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null,section:s.id})}))}
+                    onToggle={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
                     onDelete={() => persistToday(todaySections.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
                     onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
                     onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})})})}
-                    onAddTime={(secs) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
+                    onToggleTimer={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:toggleTimer(it))}))}
+                    onAddTime={(mins) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,estimatedTime:(it.estimatedTime||0)+(mins*60)})}))}
+
                     onMoveCategory={() => setMovingItem({si,ii})}
                     onEditText={(newText) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
                     onEditRecurs={(recurs) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))}
@@ -642,6 +815,36 @@ function Planner({ onReset }) {
                     onSetExecutionDate={(d) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
                   />
                 ))}
+
+                {/* Add item input (always visible when not collapsed) */}
+                {!isCollapsed && (
+                  <div style={{ padding:"8px 6px", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
+                    <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                      <input
+                        autoFocus={addingItemInSection === si}
+                        type="text"
+                        value={newItemText[si] || ""}
+                        onChange={(e) => setNewItemText({...newItemText, [si]: e.target.value})}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            addItemToSection("today", si, newItemText[si] || "");
+                            setAddingItemInSection(null);
+                          }
+                          if (e.key === "Escape") {
+                            setAddingItemInSection(null);
+                          }
+                        }}
+                        placeholder="+ Add task…"
+                        style={{ flex:1, border:"none", background:"transparent", fontSize:"13px", outline:"none", padding:"4px 0", fontFamily:"'Atkinson Hyperlegible', sans-serif", color:"rgba(0,0,0,0.5)" }}
+                      />
+                      <button
+                        onClick={() => addItemToSection("today", si, newItemText[si] || "")}
+                        style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600 }}>
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             );
@@ -654,7 +857,7 @@ function Planner({ onReset }) {
                 <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
                 <div style={{ display:"flex", gap:"8px" }}>
                   <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. Work, Personal…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
-                  <button onClick={() => { if(newSecName) persistToday([...todaySections, { id:`today-${Date.now()}`, label:newSecName, emoji:"📝", color:"#F5EDD3", accent:"#C4B83A", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                  <button onClick={() => { if(newSecName) persistToday([...todaySections, { id:`today-${Date.now()}`, label:newSecName, emoji:"📝", color:"#F5EDD3", accent:"#C4B83A", fontColor:"black", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
                   <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
                 </div>
               </div>
@@ -672,331 +875,473 @@ function Planner({ onReset }) {
           <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center" }}>
             <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
             <button onClick={() => setFutureSort("all")} style={{ background:futureSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
-            <button onClick={() => setFutureSort("deadline")} style={{ background:futureSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
-            <button onClick={() => setFutureSort("executionDate")} style={{ background:futureSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
-            {powerUp.some(s => s.items.some(it => it.done)) && (
-              <button onClick={() => { const completedTasks = []; powerUp.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push(item); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistPowerUp(powerUp.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600, marginLeft:"auto" }}>✓ Clear Completed</button>
-            )}
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:"16px", marginBottom:"24px" }}>
-            {powerUp.map((section, si) => {
-            const isCollapsed = getCollapsedState(`future-${si}`);
-            // Sort items based on selected sort
-            const sortedItems = futureSort === "deadline" 
-              ? [...section.items].sort((a,b) => {
-                  const aDate = a.deadline || "9999-12-31";
-                  const bDate = b.deadline || "9999-12-31";
-                  return aDate.localeCompare(bDate);
-                })
-              : [...section.items].sort((a,b) => {
-                  const aDate = a.executionDate || "9999-12-31";
-                  const bDate = b.executionDate || "9999-12-31";
-                  return aDate.localeCompare(bDate);
-                });
+            <button onClick={() => { setFutureSort("deadline"); setFutureFilterCat("all"); }} style={{ background:futureSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
+            <button onClick={() => { setFutureSort("executionDate"); setFutureFilterCat("all"); }} style={{ background:futureSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
             
-            return (
-            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }} draggable onDragStart={(e) => { setDraggedSection({si, tab:"future"}); e.dataTransfer.effectAllowed="move"; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if(draggedSection?.tab==="future" && draggedSection?.si!==si) { const newSections=[...powerUp]; const [m]=newSections.splice(draggedSection.si,1); newSections.splice(si,0,m); persistPowerUp(newSections); } setDraggedSection(null); }} onDragEnd={() => setDraggedSection(null)} style={{ opacity: draggedSection?.si===si && draggedSection?.tab==="future" ? 0.5 : 1, cursor:"grab" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"70px" }}>
-                {/* section header */}
-                <SectionHeader
-                  section={section}
-                  si={si}
-                  isCollapsed={isCollapsed}
-                  onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`future-${si}`]: !isCollapsed})}
-                  onRename={(name) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
-                  onSetEmoji={(emoji) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,emoji}))}
-                  onSetColor={(color) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
-                  onDelete={() => persistPowerUp(powerUp.filter((_,i) => i!==si))}
-                  onMoveUp={() => { if(si>0) { const newSections=[...powerUp]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistPowerUp(newSections); } }}
-                  onMoveDown={() => { if(si<powerUp.length-1) { const newSections=[...powerUp]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistPowerUp(newSections); } }}
-                  canMoveUp={si>0}
-                  canMoveDown={si<powerUp.length-1}
-                />
-                
-                {/* items - sorted, only show if not collapsed */}
-                {!isCollapsed && sortedItems.map((item, ii) => {
-                  // Find the original index of this item in the unsorted array
-                  const origIi = section.items.findIndex(it => 
-                    it.text === item.text && it.timeSpent === item.timeSpent && it.done === item.done
-                  );
-                  return (
-                  <TaskItem
-                    key={origIi}
-                    item={item}
-                    index={origIi}
-                    total={section.items.length}
-                    accent={section.accent}
-                    isDragging={draggedTask?.si===si && draggedTask?.ii===origIi}
-                    onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
-                    onDragEnd={() => setDraggedTask(null)}
-                    onToggle={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null,section:s.id})}))}
-                    onDelete={() => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==origIi)}))}
-                    onMoveUp={() => { if(origIi>0) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi-1]]=[newItems[origIi-1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onMoveDown={() => { if(origIi<section.items.length-1) { const newItems=[...section.items]; [newItems[origIi],newItems[origIi+1]]=[newItems[origIi+1],newItems[origIi]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})})})}
-                    onAddTime={(secs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
-                    onMoveCategory={() => setPuActions({si,ii:origIi,item:section.items[origIi],section,isProject:false})}
-                    onEditText={(newText) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,text:newText})}))}
-                    onEditRecurs={(recurs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,recurs})}))}
-                    onToggleUrgent={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,urgent:!it.urgent})}))}
-                    onSetDeadline={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,deadline:d})}))}
-                    onSetExecutionDate={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==origIi?it:{...it,executionDate:d})}))}
-                    onExecuteToday={() => {
-                      const item = section.items[origIi];
-                      persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==origIi)}));
-                      persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));
-                    }}
-                  />
-                  );
-                })}
-                {!isCollapsed && (
-                  <div style={{ padding:"8px", fontSize:"12px" }}>
-                    <input type="text" placeholder="+ Add task" onKeyDown={(e) => { if(e.key==="Enter" && e.target.value) { persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:[...s.items,{text:e.target.value,done:false,timeSpent:0,timerStart:null,recurs:"none",urgent:false,deadline:null,completedAt:null,executionDate:null,scheduledTo:null,section:s.id}]})); e.target.value=""; } }} style={{ width:"100%", border:"none", borderBottom:"1px solid rgba(0,0,0,0.1)", background:"transparent", fontSize:"12px", padding:"4px 0", outline:"none" }} />
-                  </div>
-                )}
-              </div>
-            </div>
-            );
-          })}
+            {futureSort !== "all" && (
+              <>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginLeft:"12px" }}>Category:</span>
+                <select value={futureFilterCat} onChange={e => setFutureFilterCat(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+                  <option value="all">All categories</option>
+                  {powerUp
+                    .map(s => s.label)
+                    .filter((v, i, a) => a.indexOf(v) === i)
+                    .sort()
+                    .map(catName => {
+                      const section = powerUp.find(s => s.label === catName);
+                      const hasDate = section && section.items.some(item => 
+                        (futureSort === "deadline" && item.deadline) || 
+                        (futureSort === "executionDate" && item.executionDate)
+                      );
+                      return (
+                        <option key={catName} value={catName}>{hasDate ? "● " : ""}{catName}</option>
+                      );
+                    })
+                  }
+                </select>
+              </>
+            )}
           </div>
           
-          {/* add section for Future */}
-          <div style={{ marginBottom:"16px" }}>
-            {addingSection ? (
-              <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
-                <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
-                <div style={{ display:"flex", gap:"8px" }}>
-                  <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. Read Later, Learn…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
-                  <button onClick={() => { if(newSecName) persistPowerUp([...powerUp, { id:`future-${Date.now()}`, label:newSecName, emoji:"⭐", color:"#F5EDD3", accent:"#C4B83A", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
-                  <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+          {/* All view - Grid with sections */}
+          {futureSort === "all" && (
+            <div className="today-grid">
+              {powerUp.map((section, si) => {
+                const isCollapsed = getCollapsedState(`future-${si}`);
+                return (
+                <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
+                <div 
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.5px solid ${section.accent || "rgba(0,0,0,0.1)"}` }}>
+                  {/* section header */}
+                  <SectionHeader
+                    section={section}
+                    si={si}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`future-${si}`]: !isCollapsed})}
+                    onRename={(name) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onSetEmoji={(emoji) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,emoji}))}
+                    onSetColor={(color) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
+                    onSetFontColor={(fc) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
+                    onDelete={() => persistPowerUp(powerUp.filter((_,i) => i!==si))}
+                    onMoveUp={() => { if(si>0) { const newSections=[...powerUp]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistPowerUp(newSections); } }}
+                    onMoveDown={() => { if(si<powerUp.length-1) { const newSections=[...powerUp]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistPowerUp(newSections); } }}
+                    canMoveUp={si>0}
+                    canMoveDown={si<powerUp.length-1}
+                  />
+                  
+                  {/* items */}
+                  {!isCollapsed && section.items.map((item, ii) => (
+                    <TaskItem
+                      key={ii}
+                      item={item}
+                      index={ii}
+                      total={section.items.length}
+                      accent={section.accent}
+                      isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
+                      onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
+                      onDragEnd={() => setDraggedTask(null)}
+                      onToggle={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
+                      onDelete={() => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
+                      onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:toggleTimer(it))}))}
+                      onAddTime={(mins) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,estimatedTime:(it.estimatedTime||0)+(mins*60)})}))}
+                      onMoveCategory={() => setPuActions({si,ii:ii,item:section.items[ii],section,isProject:false})}
+                      onEditText={(newText) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
+                      onEditRecurs={(recurs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))}
+                      onToggleUrgent={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))}
+                      onSetDeadline={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))}
+                      onSetExecutionDate={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
+                      onExecuteToday={() => {
+                        const item = section.items[ii];
+                        persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
+                        persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));
+                      }}
+                    />
+                  ))}
+
+                  {/* Add item input */}
+                  {!isCollapsed && (
+                    <div style={{ padding:"8px 6px", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
+                      <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                        <input
+                          type="text"
+                          value={newItemText[`future-${si}`] || ""}
+                          onChange={(e) => setNewItemText({...newItemText, [`future-${si}`]: e.target.value})}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              addItemToSection("future", si, newItemText[`future-${si}`] || "");
+                              setNewItemText({...newItemText, [`future-${si}`]: ""});
+                            }
+                            if (e.key === "Escape") {
+                              setNewItemText({...newItemText, [`future-${si}`]: ""});
+                            }
+                          }}
+                          placeholder="+ Add task…"
+                          style={{ flex:1, border:"none", background:"transparent", fontSize:"13px", outline:"none", padding:"4px 0", fontFamily:"'Atkinson Hyperlegible', sans-serif", color:"rgba(0,0,0,0.5)" }}
+                        />
+                        <button
+                          onClick={() => {
+                            addItemToSection("future", si, newItemText[`future-${si}`] || "");
+                            setNewItemText({...newItemText, [`future-${si}`]: ""});
+                          }}
+                          style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600 }}>
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : (
-              <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ Add section</button>
-            )}
-          </div>
+              );
+            })}
+            </div>
+          )}
+          
+          {/* Deadline/Execution view - Flat card grid */}
+          {futureSort !== "all" && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:"12px" }}>
+              {powerUp.flatMap((section, si) => 
+                section.items.map((item, ii) => ({
+                  ...item,
+                  si,
+                  ii,
+                  section,
+                  sortDate: futureSort === "deadline" ? (item.deadline || "9999-12-31") : (item.executionDate || "9999-12-31")
+                }))
+              )
+              .filter(item => (futureSort === "deadline" ? item.deadline : item.executionDate) && (futureFilterCat === "all" || item.section.label === futureFilterCat))
+              .sort((a, b) => a.sortDate.localeCompare(b.sortDate))
+              .map((item, idx) => (
+                <div key={idx} style={{ background:item.section.color, borderRadius:"12px", padding:"12px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", display:"flex", flexDirection:"column", gap:"6px" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                    <span style={{ fontSize:"18px", flexShrink:0, lineHeight:1 }}>{item.section.emoji}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"13px", fontWeight:item.urgent?700:500, color:item.urgent?"#C43A3A":item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", marginBottom:"4px" }}>{item.text}</div>
+                      <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.45)", display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                        {item.executionDate && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>📅 {fmtShort(item.executionDate)}</span>}
+                        {item.deadline && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>⏳ {fmtShort(item.deadline)}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => persistPowerUp(powerUp.map((s,i)=>i!==item.si?s:{...s,items:s.items.map((it,j)=>j!==item.ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))} style={{ flexShrink:0, width:"18px", height:"18px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+                      {item.done && <span style={{ color:"white", fontSize:"9px", fontWeight:700 }}>✓</span>}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* add section for Future */}
+          {futureSort === "all" && (
+            <div style={{ marginBottom:"16px" }}>
+              {addingSection ? (
+                <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
+                  <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. Read Later, Learn…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                    <button onClick={() => { if(newSecName) persistPowerUp([...powerUp, { id:`future-${Date.now()}`, label:newSecName, emoji:"⭐", color:"#F5EDD3", accent:"#C4B83A", fontColor:"black", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                    <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ Add section</button>
+              )}
+            </div>
+          )}
         </>
       )}
 
       {/* content - Projects */}
       {tab === "projects" && (
         <>
-          {/* Clear Completed button */}
-          {projects.some(s => s.items.some(it => it.done)) && (
-            <div style={{ marginBottom:"16px", display:"flex" }}>
-              <button onClick={() => { const completedTasks = []; projects.forEach(section => { section.items.forEach(item => { if(item.done) completedTasks.push(item); }); }); if(completedTasks.length > 0) { persistDone([...done, ...completedTasks]); persistProjects(projects.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); } }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
-            </div>
-          )}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:"16px", marginBottom:"24px" }}>
-            {projects.map((section, si) => {
-            const isCollapsed = getCollapsedState(`projects-${si}`);
-            return (
-            <div key={si} style={{ marginBottom:"16px", breakInside:"avoid" }} draggable onDragStart={(e) => { setDraggedSection({si, tab:"projects"}); e.dataTransfer.effectAllowed="move"; }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if(draggedSection?.tab==="projects" && draggedSection?.si!==si) { const newSections=[...projects]; const [m]=newSections.splice(draggedSection.si,1); newSections.splice(si,0,m); persistProjects(newSections); } setDraggedSection(null); }} onDragEnd={() => setDraggedSection(null)} style={{ opacity: draggedSection?.si===si && draggedSection?.tab==="projects" ? 0.5 : 1, cursor:"grab" }}>
-              <div style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", minHeight:"70px" }}>
-                {/* section header */}
-                <SectionHeader
-                  section={section}
-                  si={si}
-                  isCollapsed={isCollapsed}
-                  onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`projects-${si}`]: !isCollapsed})}
-                  onRename={(name) => persistProjects(projects.map((s,i) => i!==si?s:{...s,label:name}))}
-                  onSetEmoji={(emoji) => persistProjects(projects.map((s,i) => i!==si?s:{...s,emoji}))}
-                  onSetColor={(color) => persistProjects(projects.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
-                  onDelete={() => persistProjects(projects.filter((_,i) => i!==si))}
-                  onMoveUp={() => { if(si>0) { const newSections=[...projects]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistProjects(newSections); } }}
-                  onMoveDown={() => { if(si<projects.length-1) { const newSections=[...projects]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistProjects(newSections); } }}
-                  canMoveUp={si>0}
-                  canMoveDown={si<projects.length-1}
-                />
-                
-                {/* items - only show if not collapsed */}
-                {!isCollapsed && section.items.map((item, ii) => (
-                  <TaskItem
-                    key={ii}
-                    item={item}
-                    index={ii}
-                    total={section.items.length}
-                    accent={section.accent}
-                    isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
-                    onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
-                    onDragEnd={() => setDraggedTask(null)}
-                    onToggle={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null,section:s.id})}))}
-                    onDelete={() => persistProjects(projects.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
-                    onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
-                    onToggleTimer={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timerStart:it.timerStart?null:Date.now(),timeSpent:it.timerStart?(it.timeSpent||0)+Math.floor((Date.now()-it.timerStart)/1000):(it.timeSpent||0)})})})}
-                    onAddTime={(secs) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,timeSpent:(it.timeSpent||0)+secs})}))}
-                    onMoveCategory={() => setPuActions({si,ii,item:section.items[ii],section,isProject:true})}
-                    onEditText={(newText) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
-                    onEditRecurs={(recurs) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))}
-                    onToggleUrgent={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))}
-                    onSetDeadline={(d) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))}
-                    onSetExecutionDate={(d) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
-                    onExecuteToday={() => {
-                      const item = section.items[ii];
-                      persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
-                      persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));
-                    }}
-                  />
-                ))}
-                {!isCollapsed && (
-                  <div style={{ padding:"8px", fontSize:"12px" }}>
-                    <input type="text" placeholder="+ Add task" onKeyDown={(e) => { if(e.key==="Enter" && e.target.value) { persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:[...s.items,{text:e.target.value,done:false,timeSpent:0,timerStart:null,recurs:"none",urgent:false,deadline:null,completedAt:null,executionDate:null,scheduledTo:null,section:s.id}]})); e.target.value=""; } }} style={{ width:"100%", border:"none", borderBottom:"1px solid rgba(0,0,0,0.1)", background:"transparent", fontSize:"12px", padding:"4px 0", outline:"none" }} />
-                  </div>
-                )}
-              </div>
-            </div>
-            );
-          })}
-          </div>
-          
-          {/* add section for Projects */}
-          <div style={{ marginBottom:"16px" }}>
-            {addingSection ? (
-              <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
-                <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Project name</p>
-                <div style={{ display:"flex", gap:"8px" }}>
-                  <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. SFHEA, D.E.B.T App…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
-                  <button onClick={() => { if(newSecName) persistProjects([...projects, { id:`proj-${Date.now()}`, label:newSecName, emoji:"🎯", color:"#F5EDD3", accent:"#C4B83A", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
-                  <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ New project</button>
+          {/* sort options */}
+          <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center" }}>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
+            <button onClick={() => setProjectsSort("all")} style={{ background:projectsSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
+            <button onClick={() => { setProjectsSort("deadline"); setProjectsFilterCat("all"); }} style={{ background:projectsSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
+            <button onClick={() => { setProjectsSort("executionDate"); setProjectsFilterCat("all"); }} style={{ background:projectsSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
+            
+            {projectsSort !== "all" && (
+              <>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginLeft:"12px" }}>Category:</span>
+                <select value={projectsFilterCat} onChange={e => setProjectsFilterCat(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+                  <option value="all">All categories</option>
+                  {projects
+                    .map(s => s.label)
+                    .filter((v, i, a) => a.indexOf(v) === i)
+                    .sort()
+                    .map(catName => {
+                      const section = projects.find(s => s.label === catName);
+                      const hasDate = section && section.items.some(item => 
+                        (projectsSort === "deadline" && item.deadline) || 
+                        (projectsSort === "executionDate" && item.executionDate)
+                      );
+                      return (
+                        <option key={catName} value={catName}>{hasDate ? "● " : ""}{catName}</option>
+                      );
+                    })
+                  }
+                </select>
+              </>
             )}
           </div>
+          
+          {/* All view - Grid with sections */}
+          {projectsSort === "all" && (
+            <div className="today-grid">
+              {projects.map((section, si) => {
+                const isCollapsed = getCollapsedState(`projects-${si}`);
+                return (
+                <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
+                <div 
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:`0.5px solid ${section.accent || "rgba(0,0,0,0.1)"}` }}>
+                  {/* section header */}
+                  <SectionHeader
+                    section={section}
+                    si={si}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`projects-${si}`]: !isCollapsed})}
+                    onRename={(name) => persistProjects(projects.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onSetEmoji={(emoji) => persistProjects(projects.map((s,i) => i!==si?s:{...s,emoji}))}
+                    onSetColor={(color) => persistProjects(projects.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent}))}
+                    onSetFontColor={(fc) => persistProjects(projects.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
+                    onDelete={() => persistProjects(projects.filter((_,i) => i!==si))}
+                    onMoveUp={() => { if(si>0) { const newSections=[...projects]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistProjects(newSections); } }}
+                    onMoveDown={() => { if(si<projects.length-1) { const newSections=[...projects]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistProjects(newSections); } }}
+                    canMoveUp={si>0}
+                    canMoveDown={si<projects.length-1}
+                  />
+                  
+                  {/* items */}
+                  {!isCollapsed && section.items.map((item, ii) => (
+                    <TaskItem
+                      key={ii}
+                      item={item}
+                      index={ii}
+                      total={section.items.length}
+                      accent={section.accent}
+                      isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
+                      onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
+                      onDragEnd={() => setDraggedTask(null)}
+                      onToggle={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
+                      onDelete={() => persistProjects(projects.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
+                      onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onToggleTimer={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:toggleTimer(it))}))}
+                      onAddTime={(mins) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,estimatedTime:(it.estimatedTime||0)+(mins*60)})}))}
+                      onMoveCategory={() => setPuActions({si,ii,item:section.items[ii],section,isProject:true})}
+                      onEditText={(newText) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
+                      onEditRecurs={(recurs) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))}
+                      onToggleUrgent={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))}
+                      onSetDeadline={(d) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))}
+                      onSetExecutionDate={(d) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
+                      onExecuteToday={() => {
+                        const item = section.items[ii];
+                        persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
+                        persistToday(todaySections.map((s,i)=>i===0?{...s,items:[...s.items,item]}:s));
+                      }}
+                    />
+                  ))}
+
+                  {/* Add item input */}
+                  {!isCollapsed && (
+                    <div style={{ padding:"8px 6px", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
+                      <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                        <input
+                          type="text"
+                          value={newItemText[`projects-${si}`] || ""}
+                          onChange={(e) => setNewItemText({...newItemText, [`projects-${si}`]: e.target.value})}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              addItemToSection("projects", si, newItemText[`projects-${si}`] || "");
+                              setNewItemText({...newItemText, [`projects-${si}`]: ""});
+                            }
+                            if (e.key === "Escape") {
+                              setNewItemText({...newItemText, [`projects-${si}`]: ""});
+                            }
+                          }}
+                          placeholder="+ Add task…"
+                          style={{ flex:1, border:"none", background:"transparent", fontSize:"13px", outline:"none", padding:"4px 0", fontFamily:"'Atkinson Hyperlegible', sans-serif", color:"rgba(0,0,0,0.5)" }}
+                        />
+                        <button
+                          onClick={() => {
+                            addItemToSection("projects", si, newItemText[`projects-${si}`] || "");
+                            setNewItemText({...newItemText, [`projects-${si}`]: ""});
+                          }}
+                          style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600 }}>
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              );
+            })}
+            </div>
+          )}
+          
+          {/* Deadline/Execution view - Flat card grid */}
+          {projectsSort !== "all" && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:"12px" }}>
+              {projects.flatMap((section, si) => 
+                section.items.map((item, ii) => ({
+                  ...item,
+                  si,
+                  ii,
+                  section,
+                  sortDate: projectsSort === "deadline" ? (item.deadline || "9999-12-31") : (item.executionDate || "9999-12-31")
+                }))
+              )
+              .filter(item => (projectsSort === "deadline" ? item.deadline : item.executionDate) && (projectsFilterCat === "all" || item.section.label === projectsFilterCat))
+              .sort((a, b) => a.sortDate.localeCompare(b.sortDate))
+              .map((item, idx) => (
+                <div key={idx} style={{ background:item.section.color, borderRadius:"12px", padding:"12px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", display:"flex", flexDirection:"column", gap:"6px" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                    <span style={{ fontSize:"18px", flexShrink:0, lineHeight:1 }}>{item.section.emoji}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"13px", fontWeight:item.urgent?700:500, color:item.urgent?"#C43A3A":item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", marginBottom:"4px" }}>{item.text}</div>
+                      <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.45)", display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                        {item.executionDate && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>📅 {fmtShort(item.executionDate)}</span>}
+                        {item.deadline && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>⏳ {fmtShort(item.deadline)}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => persistProjects(projects.map((s,i)=>i!==item.si?s:{...s,items:s.items.map((it,j)=>j!==item.ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))} style={{ flexShrink:0, width:"18px", height:"18px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+                      {item.done && <span style={{ color:"white", fontSize:"9px", fontWeight:700 }}>✓</span>}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* add section for Projects */}
+          {projectsSort === "all" && (
+            <div style={{ marginBottom:"16px" }}>
+              {addingSection ? (
+                <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
+                  <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Project name</p>
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. SFHEA, D.E.B.T App…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                    <button onClick={() => { if(newSecName) persistProjects([...projects, { id:`proj-${Date.now()}`, label:newSecName, emoji:"🎯", color:"#F5EDD3", accent:"#C4B83A", fontColor:"black", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                    <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ New project</button>
+              )}
+            </div>
+          )}
         </>
       )}
 
       {/* content - Done */}
       {tab === "done" && (
-        <div>
-          {/* sort options */}
-          <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center" }}>
-            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
-            <button onClick={() => setDoneSort("all")} style={{ background:doneSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
-            <button onClick={() => setDoneSort("date")} style={{ background:doneSort==="date"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Date</button>
-            <button onClick={() => setDoneSort("category")} style={{ background:doneSort==="category"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📂 Category</button>
+        <>
+          {/* filter options */}
+          <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center", flexWrap:"wrap" }}>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Category:</span>
+            <select value={doneFilterCat} onChange={e => setDoneFilterCat(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+              <option value="all">All categories</option>
+              {[
+                ...new Set(done.map(item => item.section || "Orphan"))
+              ]
+              .sort((a, b) => a === "Orphan" ? 1 : b === "Orphan" ? -1 : a.localeCompare(b))
+              .map(catName => {
+                const hasCompleted = done.some(item => (item.section || "Orphan") === catName);
+                return (
+                  <option key={catName} value={catName}>{hasCompleted ? "● " : ""}{catName}</option>
+                );
+              })}
+            </select>
+            
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginLeft:"12px" }}>Month:</span>
+            <select value={doneFilterMonth} onChange={e => setDoneFilterMonth(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+              <option value="all">All months</option>
+              {[...new Set(done
+                .filter(item => item.completedAt)
+                .map(item => {
+                  const d = new Date(item.completedAt + "T00:00:00");
+                  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                })
+              )]
+              .sort()
+              .reverse()
+              .map(monthStr => {
+                const [year, month] = monthStr.split("-");
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                const displayMonth = monthNames[parseInt(month) - 1];
+                return (
+                  <option key={monthStr} value={monthStr}>{displayMonth} {year}</option>
+                );
+              })}
+            </select>
           </div>
           
-          <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.45)" }}>Completed tasks ({done.length})</p>
-          
-          {doneSort === "all" && (
-            // Show all tasks as simple list
-            <div>
-              {done.map((item, ii) => (
-                <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                  {item.text}
-                  {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {doneSort === "date" && (
-            // Sort by completion date
-            <div>
-              {[...done].sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || "")).map((item, ii) => (
-                <div key={ii} style={{ padding:"8px 12px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                  {item.text}
-                  {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {doneSort === "category" && (
-            <div>
-              {(() => {
-                const allCategories = [...todaySections, ...powerUp, ...projects];
-                const allCategoryIds = new Set(allCategories.map(c => c.id));
-                return (
-                  <>
-                    {allCategories.map((category, categoryIndex) => {
-                      const categoryItems = done.filter(item => item.section === category.id);
-                      if (categoryItems.length === 0) return null;
-                      
-                      const getSource = (id) => {
-                        if (id.startsWith('today-') || id === 'welcome') return 'today';
-                        if (id.startsWith('future-')) return 'future';
-                        if (id.startsWith('proj-')) return 'projects';
-                        return null;
-                      };
-                      const source = getSource(category.id);
-                      const sourceList = source === 'today' ? todaySections : source === 'future' ? powerUp : projects;
-                      const sourceIndex = sourceList.findIndex(c => c.id === category.id);
-                      const canMoveUp = sourceIndex > 0;
-                      const canMoveDown = sourceIndex < sourceList.length - 1;
-                      
-                      const handleMoveUp = () => {
-                        if (!canMoveUp) return;
-                        const newList = [...sourceList];
-                        [newList[sourceIndex], newList[sourceIndex - 1]] = [newList[sourceIndex - 1], newList[sourceIndex]];
-                        if (source === 'today') persistToday(newList);
-                        else if (source === 'future') persistPowerUp(newList);
-                        else if (source === 'projects') persistProjects(newList);
-                      };
-                      const handleMoveDown = () => {
-                        if (!canMoveDown) return;
-                        const newList = [...sourceList];
-                        [newList[sourceIndex], newList[sourceIndex + 1]] = [newList[sourceIndex + 1], newList[sourceIndex]];
-                        if (source === 'today') persistToday(newList);
-                        else if (source === 'future') persistPowerUp(newList);
-                        else if (source === 'projects') persistProjects(newList);
-                      };
-                      
-                      return (
-                        <div key={category.id} style={{ marginBottom:"12px" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>
-                            <div style={{ display:"flex", gap:"2px" }}>
-                              <button onClick={handleMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"10px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>↑</button>
-                              <button onClick={handleMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"10px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>↓</button>
-                            </div>
-                            <span>{category.emoji} {category.label}</span>
+          {/* completed tasks - flat card grid */}
+          {done.length > 0 ? (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:"12px" }}>
+              {done
+                .filter(item => {
+                  const catMatch = doneFilterCat === "all" || (item.section || "Orphan") === doneFilterCat;
+                  let monthMatch = true;
+                  if (doneFilterMonth !== "all" && item.completedAt) {
+                    const d = new Date(item.completedAt + "T00:00:00");
+                    const itemMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    monthMatch = itemMonth === doneFilterMonth;
+                  }
+                  return catMatch && monthMatch;
+                })
+                .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""))
+                .map((item, idx) => {
+                  const catName = item.section || "Orphan";
+                  const sectionExists = powerUp.some(s => s.label === item.section) || projects.some(s => s.label === item.section);
+                  const isOrphan = !sectionExists && item.section;
+                  
+                  // Get section emoji/color if it exists, else use orphan style
+                  let displayEmoji = "📦";
+                  let displayColor = "#F5F1EB";
+                  let displayTextColor = "rgba(0,0,0,0.5)";
+                  
+                  if (!isOrphan) {
+                    const foundSection = [...powerUp, ...projects].find(s => s.label === item.section);
+                    if (foundSection) {
+                      displayEmoji = foundSection.emoji;
+                      displayColor = foundSection.color;
+                    }
+                  } else {
+                    displayTextColor = "rgba(0,0,0,0.35)";
+                  }
+                  
+                  return (
+                    <div key={idx} style={{ background:displayColor, borderRadius:"12px", padding:"12px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", display:"flex", flexDirection:"column", gap:"6px", opacity:isOrphan?0.7:1 }}>
+                      <div style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                        <span style={{ fontSize:"18px", flexShrink:0, lineHeight:1, opacity:isOrphan?0.6:1 }}>{displayEmoji}</span>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:"13px", fontWeight:500, color:"rgba(0,0,0,0.78)", textDecoration:"line-through", marginBottom:"4px" }}>{item.text}</div>
+                          <div style={{ fontSize:"11px", color:displayTextColor, display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center" }}>
+                            <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>✓ {fmtShort(item.completedAt || "")}</span>
+                            {isOrphan && <span style={{ background:"rgba(0,0,0,0.1)", padding:"2px 6px", borderRadius:"3px", fontSize:"10px", fontStyle:"italic" }}>orphan</span>}
                           </div>
-                          {categoryItems.map((item, ii) => (
-                            <div key={`${category.id}-${ii}-${item.text}`} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                              {item.text}
-                              {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-                            </div>
-                          ))}
                         </div>
-                      );
-                    })}
-                    
-                    {done.filter(item => item.section === null).length > 0 && (
-                      <div style={{ marginBottom:"12px" }}>
-                        <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>📝 Uncategorized</div>
-                        {done.filter(item => item.section === null).map((item, ii) => (
-                          <div key={`uncategorized-${ii}-${item.text}`} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                            {item.text}
-                            {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-                          </div>
-                        ))}
+                        <button onClick={() => persistDone(done.filter((_,i) => i!==idx))} style={{ flexShrink:0, color:"rgba(0,0,0,0.2)", background:"none", border:"none", cursor:"pointer", fontSize:"16px" }}>✕</button>
                       </div>
-                    )}
-                    
-                    {done.filter(item => item.section !== null && !allCategoryIds.has(item.section)).length > 0 && (
-                      <div style={{ marginBottom:"12px", opacity:0.6 }}>
-                        <div style={{ fontSize:"11px", fontWeight:700, color:"rgba(0,0,0,0.35)", marginBottom:"4px" }}>🗑️ Deleted Categories</div>
-                        {done.filter(item => item.section !== null && !allCategoryIds.has(item.section)).map((item, ii) => (
-                          <div key={`deleted-${ii}-${item.text}`} style={{ padding:"8px 12px 8px 28px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", marginBottom:"4px", fontSize:"13px", color:"rgba(0,0,0,0.5)", textDecoration:"line-through" }}>
-                            {item.text}
-                            {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"8px", opacity:0.6 }}>✓ {fmtShort(item.completedAt)}</span>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+                    </div>
+                  );
+                })
+              }
+            </div>
+          ) : (
+            <div style={{ padding:"40px 20px", background:"rgba(0,0,0,0.03)", borderRadius:"12px", textAlign:"center", color:"rgba(0,0,0,0.3)" }}>
+              <p style={{ margin:0, fontSize:"13px" }}>No completed tasks yet. Go get 'em! 🚀</p>
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Modals */}
@@ -1033,37 +1378,9 @@ function Planner({ onReset }) {
           </div>
         </div>
       )}
+      </div>
       {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} onClose={() => setShowBackup(false)} />}
       {showRestore && <RestoreModal onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onClose={() => setShowRestore(false)} />}
-      {puActions   && <PUActionsModal item={puActions.item} section={puActions.section}
-        categories={puActions.isProject ? projects : powerUp}
-        onSetDeadline={(d) => {
-          if (puActions.isProject) {
-            persistProjects(projects.map((sec,s) => s!==puActions.si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==puActions.ii?it:{...it,deadline:d}) }));
-          } else {
-            setDeadlinePU(puActions.si, puActions.ii, d);
-          }
-        }}
-        onSetExecution={(d) => {
-          if (puActions.isProject) {
-            persistProjects(projects.map((sec,s) => s!==puActions.si?sec:{ ...sec, items:sec.items.map((it,i)=>i!==puActions.ii?it:{...it,executionDate:d}) }));
-          } else {
-            setExecutionPU(puActions.si, puActions.ii, d);
-          }
-        }}
-        onMoveCategory={(toSi) => {
-          if (puActions.isProject) {
-            const item = projects[puActions.si].items[puActions.ii];
-            persistProjects(projects.map((s,i) => {
-              if (i === puActions.si) return { ...s, items: s.items.filter((_,j) => j !== puActions.ii) };
-              if (i === toSi) return { ...s, items: [...s.items, item] };
-              return s;
-            }));
-          } else {
-            moveCategoryPU(puActions.si, puActions.ii, toSi);
-          }
-        }}
-        onClose={() => setPuActions(null)} />}
     </div>
   );
 }
