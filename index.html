@@ -431,10 +431,10 @@ function MoveTodayCategoryModal({ item, fromSi, sections, onMove, onClose }) {
   );
 }
 
-function BackupModal({ today, done, powerUp, date, projects, appBg, onClose }) {
+function BackupModal({ today, done, powerUp, date, projects, appBg, season, onClose }) {
   const [copied, setCopied] = useState(false);
   const [saved,  setSaved]  = useState(false);
-  const text = JSON.stringify({ today, done, powerUp, date, projects, exportedAt: new Date().toISOString() });
+  const text = JSON.stringify({ today, done, powerUp, date, projects, appBg, season, exportedAt: new Date().toISOString() });
 
   const saveFile = () => {
     try {
@@ -476,7 +476,7 @@ function BackupModal({ today, done, powerUp, date, projects, appBg, onClose }) {
   );
 }
 
-function RestoreModal({ appBg, onRestoreAndReset, onClose }) {
+function RestoreModal({ appBg, onRestoreAndReset, onSetAppBg, onSetSeason, onClose }) {
   const [txt, setTxt] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -488,6 +488,8 @@ function RestoreModal({ appBg, onRestoreAndReset, onClose }) {
       if (b.powerUp)  save(LS_PU,    b.powerUp);
       if (b.date)     save(LS_DATE,  b.date);
       if (b.projects) save(LS_PROJ,  b.projects);
+      if (b.appBg)    onSetAppBg(b.appBg);
+      if (b.season)   onSetSeason(b.season);
       setMsg("✓ Restored!");
       setTimeout(() => { onRestoreAndReset(); }, 1000);
     } catch { setMsg("✗ Invalid backup file."); }
@@ -1382,8 +1384,8 @@ function Planner({ onReset }) {
         </div>
       )}
       </div>
-      {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} appBg={appBg} onClose={() => setShowBackup(false)} />}
-      {showRestore && <RestoreModal appBg={appBg} onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onClose={() => setShowRestore(false)} />}
+      {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} appBg={appBg} season={season} onClose={() => setShowBackup(false)} />}
+      {showRestore && <RestoreModal appBg={appBg} onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onSetAppBg={setAppBg} onSetSeason={setSeason} onClose={() => setShowRestore(false)} />}
     </div>
   );
 }
