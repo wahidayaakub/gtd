@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Task Tracker">
+<title>Task Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; padding: 0; background: #F5F1EB; font-family: 'Atkinson Hyperlegible', sans-serif; }
+  button { font-family: 'Atkinson Hyperlegible', sans-serif; }
+  input, textarea, select { font-family: 'Atkinson Hyperlegible', sans-serif; }
+  .dragging-task { opacity: 0.5 !important; }
+  .dragging-section { opacity: 0.5 !important; }
+  .drag-handle { cursor: grab; }
+  .drag-handle:active { cursor: grabbing; }
+  .section-drag-handle { cursor: grab; }
+  .section-drag-handle:active { cursor: grabbing; }
+  
+  /* Responsive grid for Today sections */
+  .today-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 24px;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  /* Mobile: 1 column */
+  @media (max-width: 767px) {
+    .today-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  /* Tablet: 2 columns */
+  @media (min-width: 768px) and (max-width: 1199px) {
+    .today-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  /* Desktop: 4 columns */
+  @media (min-width: 1200px) {
+    .today-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+const todayStr = () => { const d = new Date(); return d.toISOString().slice(0,10); };
+const fmtDate  = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+const fmtShort = (s) => new Date(s + "T00:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
+
+// ─── color palette (organized: light→dark by groups) ────────────────────────
+const COLOR_GROUPS = {
+  winter: [
+    { hex: "#E0F4FF", accent: "#0277BD" },
+    { hex: "#B3E5FC", accent: "#0288D1" },
+    { hex: "#81D4FA", accent: "#03A9F4" },
+    { hex: "#E8D3F0", accent: "#7B1FA2" },
+    { hex: "#4FC3F7", accent: "#01579B" },
+    { hex: "#1A237E", accent: "#0D47A1" },
+  ],
+  spring: [
+    { hex: "#E8F5E9", accent: "#2E7D32" },
+    { hex: "#C8E6C9", accent: "#388E3C" },
+    { hex: "#A5D6A7", accent: "#43A047" },
+    { hex: "#F5D3DD", accent: "#C2185B" },
+    { hex: "#F8E8D3", accent: "#E65100" },
+    { hex: "#2E7D32", accent: "#1B5E20" },
+  ],
+  summer: [
+    { hex: "#FFFDE7", accent: "#F57F17" },
+    { hex: "#FFF9C4", accent: "#F9A825" },
+    { hex: "#F8F0D3", accent: "#FFA000" },
+    { hex: "#FFE0B2", accent: "#FF6F00" },
+    { hex: "#F5D9CC", accent: "#D84315" },
+    { hex: "#F57F17", accent: "#E65100" },
+  ],
+  autumn: [
+    { hex: "#FFE0B2", accent: "#FF6F00" },
+    { hex: "#FFCC80", accent: "#F57F17" },
+    { hex: "#FFB74D", accent: "#E65100" },
+    { hex: "#D4C4A8", accent: "#8D6E63" },
+    { hex: "#E8DDD0", accent: "#A1887F" },
+    { hex: "#5D4037", accent: "#3E2723" },
+  ],
+  grayscale: [
+    { hex: "#FFFFFF", accent: "#333333" },
+    { hex: "#E0E0E0", accent: "#616161" },
+    { hex: "#BDBDBD", accent: "#757575" },
+    { hex: "#9E9E9E", accent: "#424242" },
+    { hex: "#424242", accent: "#212121" },
+    { hex: "#1A1A1A", accent: "#000000" },
+  ],
+};
+
+// ─── seed ─────────────────────────────────────────────────────────────────────
+const mk = (arr) => arr.map(text => ({ text, done: false, estimatedTime: 0, actualTime: 0, timerStart: null, recurs: "none", urgent: false, deadline: null, completedAt: null, executionDate: null, scheduledTo: null }));
+
+const SEED_TODAY = [
+  { id:"welcome", label:"Getting Started", emoji:"👋", color:"#F0E6D3", accent:"#C4823A", fontColor:"black", items: mk(["Tap the circle to complete a task","Tap ⋯ to rename, recolour, or delete","Add your own tasks below","Hit + Add section to make your own categories"]) },
+];
+
+// Empty Future seed (shared version)
+const FUTURE_SEED = [];
+
+const POWERUP_SEED = [];
+const buildPowerUp = () => POWERUP_SEED.map(s => ({ ...s, items: s.items.map(text => ({ text, done:false, completedAt:null, scheduledTo:null, deadline:null, estimatedTime:0, actualTime:0, timerStart:null, recurs:"none", urgent:false, executionDate:null })) }));
+
+// ─── storage ──────────────────────────────────────────────────────────────
+const LS_TODAY = "wahida-today-v6-shared";
+const LS_PROJ  = "wahida-projects-v6-shared";
+const LS_DONE  = "wahida-done-v6-shared";
+const LS_PU    = "wahida-powerup-v6-shared";
+const LS_DATE  = "wahida-date-v6-shared";
+
+const load = (key, fallback) => { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; } };
+
+// Migrate old Done tasks - add missing section IDs
+const migrateDone = (doneTasks) => {
+  return doneTasks.map(task => ({
+    ...task,
+    section: task.section || null,
+  }));
+};
+const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+// ─── format time ─────────────────────────────────────────────────────────────
+const fmtTime = (secs) => {
+  if (!secs) return null;
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60), h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  return `${m}m`;
+};
+
+// Helper to determine if text should be white or dark based on background color
+const isColorDark = (hexColor) => {
+  const hex = hexColor.replace("#", "");
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128; // Dark if brightness is low
+};
+
+// ─── SectionHeader ────────────────────────────────────────────────────────────
+function SectionHeader({ section, si, isCollapsed, onToggleCollapse, onRename, onSetEmoji, onSetColor, onSetFontColor, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(section.label);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showEmojiInput, setShowEmojiInput] = useState(false);
+  const [emojiInput, setEmojiInput] = useState(section.emoji);
+  const colorPickerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target)) {
+        setShowColorPicker(false);
+      }
+    };
+
+    if (showColorPicker) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showColorPicker]);
+
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px", paddingBottom:"4px" }}>
+      <button onClick={onToggleCollapse} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"11px", color:section.fontColor==="white"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.3)", lineHeight:1, padding:"0 4px" }}>
+        {isCollapsed ? "▶" : "▼"}
+      </button>
+      
+      {showEmojiInput ? (
+        <input autoFocus value={emojiInput} maxLength="2" onChange={e => setEmojiInput(e.target.value)} onBlur={() => { onSetEmoji(emojiInput || section.emoji); setShowEmojiInput(false); }} onKeyDown={e => { if(e.key==="Enter"){ onSetEmoji(emojiInput || section.emoji); setShowEmojiInput(false); } if(e.key==="Escape") setShowEmojiInput(false); }} style={{ width:"30px", fontSize:"16px", border:`1px solid ${section.fontColor==="white"?"rgba(255,255,255,0.3)":"rgba(0,0,0,0.2)"}`, borderRadius:"4px", padding:"2px", textAlign:"center", background:section.fontColor==="white"?"rgba(0,0,0,0.2)":"transparent", color:section.fontColor==="white"?"#FFFFFF":"#000000" }} />
+      ) : (
+        <button onClick={() => setShowEmojiInput(true)} style={{ background:"none", border:"none", fontSize:"18px", cursor:"pointer", padding:"0", lineHeight:1 }}>
+          {section.emoji}
+        </button>
+      )}
+      
+      {editing ? (
+        <input autoFocus value={editName} onChange={e => setEditName(e.target.value)} onBlur={() => { onRename(editName.trim() || section.label); setEditing(false); }} onKeyDown={e => { if(e.key==="Enter"){ onRename(editName.trim() || section.label); setEditing(false); } if(e.key==="Escape"){ setEditName(section.label); setEditing(false); } }} style={{ flex:1, fontSize:"14px", fontWeight:700, border:`1px solid ${section.fontColor==="white"?"rgba(255,255,255,0.3)":"rgba(0,0,0,0.3)"}`, borderRadius:"4px", background:section.fontColor==="white"?"rgba(0,0,0,0.2)":"transparent", outline:"none", padding:"2px 6px", color:section.fontColor==="white"?"#FFFFFF":"#000000" }} />
+      ) : (
+        <button onClick={() => { setEditName(section.label); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontSize:"14px", fontWeight:700, color:section.fontColor==="white"?"#FFFFFF":"rgba(0,0,0,0.7)" }}>
+          {section.label}
+        </button>
+      )}
+      
+      {/* move up/down - vertical stack */}
+      <div style={{ display:"flex", gap:"2px" }}>
+        <button onClick={onMoveUp} disabled={!canMoveUp} style={{ background:"none", border:"none", cursor:canMoveUp?"pointer":"default", fontSize:"12px", color:canMoveUp?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveUp?1:0.5 }}>▲</button>
+        <button onClick={onMoveDown} disabled={!canMoveDown} style={{ background:"none", border:"none", cursor:canMoveDown?"pointer":"default", fontSize:"12px", color:canMoveDown?"rgba(0,0,0,0.5)":"rgba(0,0,0,0.15)", opacity:canMoveDown?1:0.5 }}>▼</button>
+      </div>
+      
+      {/* color picker */}
+      <div ref={colorPickerRef} style={{ position:"relative" }}>
+        <button onClick={() => setShowColorPicker(!showColorPicker)} style={{ background:"none", border:"1px solid white", cursor:"pointer", fontSize:"12px", color:"#000000", borderRadius:"4px", padding:"2px 6px" }}>🎨</button>
+        {showColorPicker && (
+          <div style={{ position:"absolute", top:"30px", right:0, background:"white", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"8px", boxShadow:"0 4px 12px rgba(0,0,0,0.1)", zIndex:100, padding:"8px", minWidth:"280px" }}>
+            {Object.entries(COLOR_GROUPS).map(([group, colors]) => (
+              <div key={group} style={{ marginBottom:"8px" }}>
+                <div style={{ fontSize:"10px", color:"rgba(0,0,0,0.4)", marginBottom:"4px", fontWeight:600, textTransform:"uppercase" }}>{group}</div>
+                <div style={{ display:"flex", gap:"4px", flexWrap:"wrap" }}>
+                  {colors.map((c, i) => (
+                    <button key={i} onClick={() => { onSetColor(c); setShowColorPicker(false); }} title={c.hex} style={{ width:"28px", height:"28px", background:c.hex, border:c.hex===section.color?"3px solid rgba(0,0,0,0.5)":"1px solid rgba(0,0,0,0.2)", borderRadius:"4px", cursor:"pointer" }} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Font Color Toggle */}
+      <button onClick={() => onSetFontColor(section.fontColor === "white" ? "black" : "white")} style={{ background:"none", border:"1px solid white", cursor:"pointer", fontSize:"16px", color:section.fontColor==="white"?"#FFFFFF":"#000000", borderRadius:"4px", padding:"2px 6px" }} title={`Font: ${section.fontColor || "black"}`}>
+        ▪️
+      </button>
+      
+      {/* delete */}
+      <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"12px", color:"#4A4A4A" }}>✕</button>
+    </div>
+  );
+}
+
+// ─── TaskItem ─────────────────────────────────────────────────────────────────
+function TaskItem({ item, index, total, onToggle, onDelete, onMoveUp, onMoveDown, onToggleTimer, onAddTime, onMoveCategory, onEditText, onEditRecurs, onToggleUrgent, onSetDeadline, onSetExecutionDate, onExecuteToday, accent, fontColor, isDragging, onDragStart, onDragOver, onDrop, onDragEnd }) {
+  const [addingTime, setAddingTime] = useState(false);
+  const [mins, setMins] = useState("");
+  const [live, setLive] = useState(0);
+  const interval = useRef(null);
+
+  useEffect(() => {
+    if (item.timerStart) {
+      interval.current = setInterval(() => setLive(Math.floor((Date.now() - item.timerStart) / 1000)), 1000);
+    } else { clearInterval(interval.current); setLive(0); }
+    return () => clearInterval(interval.current);
+  }, [item.timerStart]);
+
+  const estSecs = item.estimatedTime || 0;
+  const actSecs = (item.actualTime || 0) + live;
+  const urgent = item.urgent || item.text.includes("⚡");
+  
+  const isOverdue = item.deadline && item.deadline < todayStr() && !item.done;
+  const isDueToday = item.deadline === todayStr() && !item.done;
+
+  const [showMenu, setShowMenu] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(item.text);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showMenu]);
+
+  return (
+    <div 
+      draggable
+      onDragStart={(e) => onDragStart(e, index)}
+      onDragOver={onDragOver}
+      onDrop={(e) => onDrop(e, index)}
+      onDragEnd={onDragEnd}
+      className={isDragging ? "dragging-task" : ""}
+      style={{ borderRadius:"8px", background: isDragging ? "rgba(0,0,0,0.08)" : "transparent", transition:"background 0.1s" }}
+      onMouseEnter={e => !isDragging && (e.currentTarget.style.background="rgba(0,0,0,0.04)")}
+      onMouseLeave={e => !isDragging && (e.currentTarget.style.background="transparent")}>
+      <div style={{ display:"flex", alignItems:"center", gap:"6px", padding:"5px 6px" }}>
+        {/* drag handle */}
+        <div className="drag-handle" style={{ display:"flex", flexDirection:"column", flexShrink:0, fontSize:"10px", color:"rgba(0,0,0,0.15)" }}>⋮⋮</div>
+        
+        {/* ▲▼ */}
+        <div style={{ display:"flex", flexDirection:"column", flexShrink:0 }}>
+          <button onClick={onMoveUp} disabled={index===0} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===0?"default":"pointer", fontSize:"8px", color:index===0?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▲</button>
+          <button onClick={onMoveDown} disabled={index===total-1} style={{ background:"none", border:"none", padding:"1px 3px", cursor:index===total-1?"default":"pointer", fontSize:"8px", color:index===total-1?"rgba(0,0,0,0.1)":"rgba(0,0,0,0.28)", lineHeight:1 }}>▼</button>
+        </div>
+        
+        {/* checkbox */}
+        <button onClick={onToggle} style={{ flexShrink:0, width:"18px", height:"18px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+          {item.done && <span style={{ color:"white", fontSize:"9px", fontWeight:700 }}>✓</span>}
+        </button>
+        
+        {/* label + details */}
+        {editing ? (
+          <input autoFocus value={editText}
+            onChange={e => setEditText(e.target.value)}
+            onBlur={() => { onEditText(editText.trim() || item.text); setEditing(false); }}
+            onKeyDown={e => { if(e.key==="Enter"){ onEditText(editText.trim() || item.text); setEditing(false); } if(e.key==="Escape"){ setEditText(item.text); setEditing(false); } }}
+            style={{ flex:1, background:"transparent", border:"none", borderBottom:`2px solid ${accent}`, outline:"none", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", padding:"2px 0", color:"rgba(0,0,0,0.78)" }} />
+        ) : (
+          <button onClick={onToggle} onDoubleClick={() => { setEditText(item.text); setEditing(true); }} style={{ flex:1, background:"none", border:"none", textAlign:"left", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", lineHeight:"1.4", color:urgent&&!item.done?"#C43A3A":item.done?(fontColor==="white"?"rgba(255,255,255,0.4)":"rgba(0,0,0,0.3)"):(fontColor==="white"?"#FFFFFF":"#000000"), textDecoration:item.done?"line-through":"none", fontWeight:urgent&&!item.done?700:400, fontStyle:"normal", padding:0 }}>
+            {item.text}
+            {item.executionDate && !item.done && (
+              <span style={{ fontSize:"10px", marginLeft:"7px", fontWeight:600, color:item.executionDate===todayStr()?"#5A9E62":"rgba(0,0,0,0.45)", background:item.executionDate===todayStr()?"rgba(90,158,98,0.12)":"rgba(0,0,0,0.06)", borderRadius:"4px", padding:"1px 5px" }}>
+                📅 {item.executionDate===todayStr()?"Today":fmtShort(item.executionDate)}
+              </span>
+            )}
+            {item.deadline && !item.done && (
+              <span style={{ fontSize:"10px", marginLeft:"7px", fontWeight:600, color:isOverdue?"#C43A3A":isDueToday?"#C4823A":"rgba(0,0,0,0.4)", background:isOverdue?"rgba(196,58,58,0.1)":isDueToday?"rgba(196,130,58,0.1)":"rgba(0,0,0,0.06)", borderRadius:"4px", padding:"1px 5px" }}>
+                {isOverdue?"⚠ ":isDueToday?"⏰ ":"⏳ "}{fmtShort(item.deadline)}
+              </span>
+            )}
+            {(estSecs > 0 || actSecs > 0) && <span style={{ fontSize:"10px", marginLeft:"6px", color:item.timerStart?"#5A9E62":"rgba(0,0,0,0.35)", fontWeight:600, fontStyle:"normal" }}>⏱ {estSecs > 0 ? `EST ${fmtTime(estSecs)}` : ""}{estSecs > 0 && actSecs > 0 ? " | " : ""}{actSecs > 0 ? `ACT ${fmtTime(actSecs)}` : ""}{item.timerStart?" ●":""}</span>}
+            {item.completedAt && <span style={{ fontSize:"10px", marginLeft:"6px", opacity:0.4, fontStyle:"italic", fontWeight:400 }}>✓ {fmtShort(item.completedAt)}</span>}
+            {item.recurs && item.recurs !== "none" && <span style={{ marginLeft:"6px", fontSize:"11px", color:"rgba(0,0,0,0.45)" }}>🔄 {item.recurs}</span>}
+          </button>
+        )}
+        
+        {/* timer button */}
+        <button onClick={onToggleTimer} style={{ background:item.timerStart?"#5A9E62":"#E8E8E8", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:item.timerStart?"white":"#333333", fontWeight:600, flexShrink:0 }}>
+          {item.timerStart ? "⏹" : "▶"}
+        </button>
+        
+        {/* +m */}
+        <button onClick={() => setAddingTime(v => !v)} style={{ background:"#E8E8E8", border:"none", borderRadius:"6px", padding:"3px 6px", fontSize:"10px", cursor:"pointer", color:"#333333", fontWeight:600, flexShrink:0 }}>+m</button>
+        
+        {/* ⋯ menu */}
+        <div ref={menuRef} style={{ position:"relative", flexShrink:0 }}>
+          <button onClick={() => setShowMenu(v => !v)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"12px", cursor:"pointer", color:"rgba(0,0,0,0.4)", fontWeight:700, lineHeight:1 }}>⋯</button>
+          {showMenu && (
+            <div style={{ position:"absolute", right:0, top:"24px", background:"white", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", zIndex:50, overflow:"hidden", minWidth:"200px" }}>
+              <button onClick={() => { onToggleUrgent(); setShowMenu(false); }} style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:urgent?"#C43A3A":"#2C2C2C" }}
+                onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                onMouseLeave={e => e.currentTarget.style.background="none"}>
+                {urgent ? "⚡ Remove urgent" : "⚡ Mark urgent"}
+              </button>
+              
+              <select value={item.recurs || "none"} onChange={e => { onEditRecurs(e.target.value); setShowMenu(false); }} style={{ display:"block", width:"100%", padding:"10px 14px", border:"none", borderTop:"1px solid rgba(0,0,0,0.05)", background:"transparent", fontSize:"13px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
+                <option value="none">— No recurrence</option>
+                <option value="daily">🔄 Daily</option>
+                <option value="weekly">🔄 Weekly</option>
+                <option value="monthly">🔄 Monthly</option>
+                <option value="asneeded">🔄 As needed</option>
+              </select>
+              
+              {/* Execution date */}
+              <div style={{ borderTop:"1px solid rgba(0,0,0,0.05)", padding:"8px 14px", display:"flex", gap:"6px", alignItems:"center" }}>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)", flex:"1" }}>📅 Execution</span>
+                <input type="date" value={item.executionDate || ""} onChange={e => { onSetExecutionDate(e.target.value || null); setShowMenu(false); }} style={{ flex:"1", padding:"4px", fontSize:"11px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"4px" }} />
+              </div>
+              
+              {/* Deadline */}
+              <div style={{ borderTop:"1px solid rgba(0,0,0,0.05)", padding:"8px 14px", display:"flex", gap:"6px", alignItems:"center" }}>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.4)", flex:"1" }}>⏳ Deadline</span>
+                <input type="date" value={item.deadline || ""} onChange={e => { onSetDeadline(e.target.value || null); setShowMenu(false); }} style={{ flex:"1", padding:"4px", fontSize:"11px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"4px" }} />
+              </div>
+              
+              {onExecuteToday && (
+                <>
+                  <button onClick={() => { onExecuteToday(); setShowMenu(false); }}
+                    style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#5A9E62", borderTop:"1px solid rgba(0,0,0,0.05)" }}
+                    onMouseEnter={e => e.currentTarget.style.background="rgba(90,158,98,0.06)"}
+                    onMouseLeave={e => e.currentTarget.style.background="none"}>→ Today</button>
+                </>
+              )}
+              
+              <button onClick={() => { onMoveCategory(); setShowMenu(false); }}
+                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#2C2C2C", borderTop:"1px solid rgba(0,0,0,0.05)" }}
+                onMouseEnter={e => e.currentTarget.style.background="rgba(0,0,0,0.05)"}
+                onMouseLeave={e => e.currentTarget.style.background="none"}>📂 Move to category</button>
+              
+              <button onClick={() => { onDelete(); setShowMenu(false); }}
+                style={{ display:"block", width:"100%", background:"none", border:"none", padding:"10px 14px", textAlign:"left", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", cursor:"pointer", color:"#C43A3A", borderTop:"1px solid rgba(0,0,0,0.05)" }}
+                onMouseEnter={e => e.currentTarget.style.background="rgba(196,58,58,0.06)"}
+                onMouseLeave={e => e.currentTarget.style.background="none"}>🗑 Delete</button>
+            </div>
+          )}
+        </div>
+      </div>
+      {addingTime && (
+        <div style={{ display:"flex", gap:"6px", padding:"2px 8px 6px 34px", alignItems:"center" }}>
+          <input autoFocus type="number" value={mins} onChange={e => setMins(e.target.value)} placeholder="mins"
+            style={{ width:"60px", border:"none", borderBottom:`2px solid ${accent}`, background:"transparent", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", outline:"none", padding:"2px 0" }} />
+          <button onClick={() => { onAddTime(parseInt(mins)||0); setMins(""); setAddingTime(false); }}
+            style={{ background:accent, border:"none", borderRadius:"6px", color:"white", padding:"3px 10px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+          <button onClick={() => setAddingTime(false)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", cursor:"pointer", fontSize:"12px" }}>✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Timer Helper: Pause & Accumulate ──────────────────────────────────────────
+const toggleTimer = (item) => ({
+  ...item,
+  timerStart: item.timerStart ? null : Date.now(),
+  actualTime: item.timerStart ? (item.actualTime || 0) + Math.floor((Date.now() - item.timerStart) / 1000) : item.actualTime
+});
+
+// ─── Modals ───────────────────────────────────────────────────────────────────
+function MoveTodayCategoryModal({ item, fromSi, sections, onMove, onClose }) {
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>📂 Move "{item.text}"</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", marginBottom:"20px" }}>
+          {sections.map((sec, i) => (
+            <button key={i} onClick={() => { onMove(i); onClose(); }}
+              style={{ background: i === fromSi ? sec.color : "rgba(0,0,0,0.05)", border: i === fromSi ? `2px solid ${sec.accent}` : "2px solid transparent", borderRadius:"8px", padding:"6px 12px", cursor: i === fromSi ? "default" : "pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: i === fromSi ? 700 : 400 }}>
+              {sec.emoji} {sec.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function BackupModal({ today, done, powerUp, date, projects, appBg, season, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+  const text = JSON.stringify({ today, done, powerUp, date, projects, appBg, season, exportedAt: new Date().toISOString() });
+
+  const saveFile = () => {
+    try {
+      const blob = new Blob([text], { type: "application/json" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `planner-backup-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
+    } catch(e) { copy(); }
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(text).catch(() => { const ta = document.getElementById("bta"); if(ta){ta.select();document.execCommand("copy");} });
+    setCopied(true); setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:appBg==="black"?"#333333":"white", border:appBg==="black"?"1px solid rgba(255,255,255,0.5)":"none", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px", color:appBg==="black"?"#FFFFFF":"#000000" }}>📋 Backup</h2>
+        <p style={{ fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.6)":"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
+          Save as a file to iCloud Drive, or copy the text to Notes/WhatsApp.
+        </p>
+        <button onClick={saveFile} style={{ width:"100%", background:saved?"#5A9E62":appBg==="black"?"#000000":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"8px", transition:"background 0.2s" }}>
+          {saved ? "✓ File saved!" : "💾 Save as file (iCloud Drive)"}
+        </button>
+        <button onClick={copy} style={{ width:"100%", background:copied?"#5A9E62":appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:copied?"white":appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:600, marginBottom:"14px", transition:"background 0.2s" }}>
+          {copied ? "✓ Copied!" : "📋 Copy to clipboard"}
+        </button>
+        <textarea id="bta" readOnly value={text} style={{ width:"100%", height:"80px", borderRadius:"8px", border:appBg==="black"?"1px solid rgba(255,255,255,0.2)":"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", color:appBg==="black"?"rgba(255,255,255,0.7)":"rgba(0,0,0,0.55)", resize:"none", boxSizing:"border-box", background:appBg==="black"?"#222222":"#F5F1EB" }} />
+        <button onClick={onClose} style={{ width:"100%", background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", marginTop:"8px" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+function RestoreModal({ appBg, onRestoreAndReset, onSetAppBg, onSetSeason, onClose }) {
+  const [txt, setTxt] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const doRestore = (jsonStr) => {
+    try {
+      const b = JSON.parse(jsonStr.trim());
+      if (b.today)    save(LS_TODAY, b.today);
+      if (b.done)     save(LS_DONE,  b.done);
+      if (b.powerUp)  save(LS_PU,    b.powerUp);
+      if (b.date)     save(LS_DATE,  b.date);
+      if (b.projects) save(LS_PROJ,  b.projects);
+      if (b.appBg)    onSetAppBg(b.appBg);
+      if (b.season)   onSetSeason(b.season);
+      setMsg("✓ Restored!");
+      setTimeout(() => { onRestoreAndReset(); }, 1000);
+    } catch { setMsg("✗ Invalid backup file."); }
+  };
+
+  const loadFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => doRestore(ev.target.result);
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:appBg==="black"?"#333333":"white", border:appBg==="black"?"1px solid rgba(255,255,255,0.5)":"none", borderRadius:"16px", padding:"24px", maxWidth:"480px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+        <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px", color:appBg==="black"?"#FFFFFF":"#000000" }}>⬆ Restore Backup</h2>
+        <p style={{ fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.6)":"rgba(0,0,0,0.5)", margin:"0 0 14px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>Load from iCloud file, or paste backup text.</p>
+        <label style={{ display:"block", width:"100%", background:appBg==="black"?"#000000":"#2C2C2C", border:"none", borderRadius:"8px", color:"white", padding:"12px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700, marginBottom:"12px", textAlign:"center", boxSizing:"border-box" }}>
+          📂 Load from file (iCloud Drive)
+          <input type="file" accept=".json,application/json" onChange={loadFile} style={{ display:"none" }} />
+        </label>
+        <textarea value={txt} onChange={e => setTxt(e.target.value)} placeholder="…or paste backup text here" style={{ width:"100%", height:"90px", borderRadius:"8px", border:appBg==="black"?"1px solid rgba(255,255,255,0.2)":"1px solid rgba(0,0,0,0.15)", padding:"10px", fontSize:"10px", fontFamily:"monospace", resize:"none", boxSizing:"border-box", background:appBg==="black"?"#222222":"white", color:appBg==="black"?"rgba(255,255,255,0.7)":"#000000" }} />
+        {msg && <div style={{ marginTop:"8px", fontSize:"13px", color:msg.startsWith("✓")?"#5A9E62":"#C43A3A", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>{msg}</div>}
+        <div style={{ display:"flex", gap:"8px", marginTop:"10px" }}>
+          <button onClick={() => doRestore(txt)} style={{ flex:1, background:appBg==="black"?"#000000":"rgba(0,0,0,0.7)", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700 }}>Restore from text</button>
+          <button onClick={onClose} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PUActionsModal({ item, section, categories, onSetDeadline, onSetExecution, onMoveCategory, onClose }) {
+  const [deadline,  setDeadline]  = useState(item.deadline      || "");
+  const [execDate,  setExecDate]  = useState(item.executionDate || "");
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+      <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)", maxHeight:"90vh", overflowY:"auto" }}>
+        <div style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:700, fontSize:"14px", marginBottom:"16px" }}>{section.emoji} {item.text}</div>
+
+        {/* Move to category */}
+        <div style={{ marginBottom:"16px" }}>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"8px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>📂 Move to category</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+            {categories.map((cat, i) => (
+              <button key={i} onClick={() => { onMoveCategory(i); onClose(); }}
+                style={{ background: cat.id === section.id ? cat.color : "rgba(0,0,0,0.05)", border: cat.id === section.id ? `2px solid ${cat.accent}` : "2px solid transparent", borderRadius:"8px", padding:"5px 10px", cursor: cat.id === section.id ? "default" : "pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"12px", color:"rgba(0,0,0,0.7)", fontWeight: cat.id === section.id ? 700 : 400 }}>
+                {cat.emoji} {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Execution date */}
+        <div style={{ marginBottom:"16px" }}>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>📅 Execution date <span style={{ opacity:0.6 }}>(→ Today on this date)</span></div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <input type="date" value={execDate} onChange={e => setExecDate(e.target.value)}
+              style={{ flex:1, border:"1px solid #5A9E62", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }} />
+            <button onClick={() => { onSetExecution(execDate||null); onClose(); }}
+              style={{ background:"#5A9E62", border:"none", borderRadius:"6px", color:"white", padding:"6px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Set</button>
+            {item.executionDate && <button onClick={() => { onSetExecution(null); onClose(); }}
+              style={{ background:"rgba(196,58,58,0.1)", border:"none", borderRadius:"6px", color:"#C43A3A", padding:"6px 10px", cursor:"pointer", fontSize:"12px" }}>Remove</button>}
+          </div>
+        </div>
+
+        {/* Deadline */}
+        <div style={{ marginBottom:"20px" }}>
+          <div style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginBottom:"6px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>⏳ Deadline</div>
+          <div style={{ display:"flex", gap:"8px" }}>
+            <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
+              style={{ flex:1, border:"1px solid #5A6A9E", borderRadius:"6px", padding:"6px 8px", fontSize:"13px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }} />
+            <button onClick={() => { onSetDeadline(deadline||null); onClose(); }}
+              style={{ background:"#5A6A9E", border:"none", borderRadius:"6px", color:"white", padding:"6px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Set</button>
+            {item.deadline && <button onClick={() => { onSetDeadline(null); onClose(); }}
+              style={{ background:"rgba(196,58,58,0.1)", border:"none", borderRadius:"6px", color:"#C43A3A", padding:"6px 10px", cursor:"pointer", fontSize:"12px" }}>Remove</button>}
+          </div>
+        </div>
+
+        <button onClick={onClose} style={{ width:"100%", background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"10px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Planner ──────────────────────────────────────────────────────────────────
+function Planner({ onReset }) {
+  const [todaySections, setTodaySections] = useState(load(LS_TODAY, SEED_TODAY));
+  const [projects, setProjects] = useState(load(LS_PROJ, []));
+  const [done, setDone] = useState(migrateDone(load(LS_DONE, [])));
+  const [powerUp, setPowerUp] = useState(load(LS_PU, buildPowerUp()));
+  const [date, setDate] = useState(load(LS_DATE, todayStr()));
+  const [tab, setTab] = useState("today");
+  const [addingSection, setAddingSection] = useState(false);
+  const [newSecName, setNewSecName] = useState("");
+  const [showBackup, setShowBackup] = useState(false);
+  const [showRestore, setShowRestore] = useState(false);
+  const [showClear, setShowClear] = useState(false);
+  const [movingItem, setMovingItem] = useState(null);
+  const [puActions, setPuActions] = useState(null);
+  const [draggedTask, setDraggedTask] = useState(null);
+  const [draggedSection, setDraggedSection] = useState(null);
+  const [collapsedSections, setCollapsedSections] = useState({}); // Collapsed by default
+  const [addingItemInSection, setAddingItemInSection] = useState(null); // Track which section is adding an item
+  const [newItemText, setNewItemText] = useState({});
+  
+  // Initialize collapsed state - check if key exists, default to true (COLLAPSED by default)
+  const getCollapsedState = (key) => {
+    if (collapsedSections.hasOwnProperty(key)) return collapsedSections[key];
+    return true; // default COLLAPSED
+  };
+  const [doneSort, setDoneSort] = useState("all"); // "all" | "date" | "category"
+  const [futureSort, setFutureSort] = useState("all"); // "all" | "deadline" | "executionDate"
+  const [futureFilterCat, setFutureFilterCat] = useState("all"); // Category filter for deadline/execution views
+  const [projectsSort, setProjectsSort] = useState("all"); // "all" | "deadline" | "executionDate"
+  const [projectsFilterCat, setProjectsFilterCat] = useState("all"); // Category filter for deadline/execution views
+  const [doneFilterCat, setDoneFilterCat] = useState("all"); // Category filter for Done tab
+  const [doneFilterMonth, setDoneFilterMonth] = useState("all"); // Month filter for Done tab
+  const [appBg, setAppBg] = useState("white"); // "white" or "black"
+  const [season, setSeason] = useState("spring"); // "winter" | "spring" | "summer" | "autumn" | "grayscale"
+
+  const persistToday = (s) => { setTodaySections(s); save(LS_TODAY, s); };
+  const persistDone = (d) => { setDone(d); save(LS_DONE, d); };
+  const persistPowerUp = (p) => { setPowerUp(p); save(LS_PU, p); };
+  const persistProjects = (p) => { setProjects(p); save(LS_PROJ, p); };
+
+  const setDeadlinePU = (si, ii, d) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{ ...s, items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d}) }));
+  const setExecutionPU = (si, ii, d) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{ ...s, items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d}) }));
+  const moveCategoryPU = (si, ii, toSi) => {
+    const item = powerUp[si].items[ii];
+    persistPowerUp(powerUp.map((s,i) => {
+      if (i === si) return { ...s, items: s.items.filter((_,j) => j !== ii) };
+      if (i === toSi) return { ...s, items: [...s.items, item] };
+      return s;
+    }));
+  };
+  const moveTodayItem = (si, ii, toSi) => {
+    const item = todaySections[si].items[ii];
+    persistToday(todaySections.map((s,i) => {
+      if (i === si) return { ...s, items: s.items.filter((_,j) => j !== ii) };
+      if (i === toSi) return { ...s, items: [...s.items, item] };
+      return s;
+    }));
+  };
+
+  // Add item to section
+  const addItemToSection = (tabName, si, text) => {
+    if (!text.trim()) return;
+    const newItem = { text: text.trim(), done: false, estimatedTime: 0, actualTime: 0, timerStart: null, recurs: "none", urgent: false, deadline: null, completedAt: null, executionDate: null, scheduledTo: null };
+    if (tabName === "today") {
+      persistToday(todaySections.map((s,i) => i!==si?s:{...s, items: [...s.items, newItem]}));
+      setNewItemText({...newItemText, [si]: ""});
+    } else if (tabName === "future") {
+      persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s, items: [...s.items, newItem]}));
+      setNewItemText({...newItemText, [`future-${si}`]: ""});
+    } else if (tabName === "projects") {
+      persistProjects(projects.map((s,i) => i!==si?s:{...s, items: [...s.items, newItem]}));
+      setNewItemText({...newItemText, [`projects-${si}`]: ""});
+    }
+  };
+
+  // Move sections vertically (for Today tab)
+  const moveSectionUp = (si) => {
+    if (si > 0) {
+      const newSections = [...todaySections];
+      [newSections[si], newSections[si-1]] = [newSections[si-1], newSections[si]];
+      persistToday(newSections);
+    }
+  };
+
+  const moveSectionDown = (si) => {
+    if (si < todaySections.length - 1) {
+      const newSections = [...todaySections];
+      [newSections[si], newSections[si+1]] = [newSections[si+1], newSections[si]];
+      persistToday(newSections);
+    }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:appBg==="black"?"#1A1A1A":"#FFFFFF", padding:"16px", transition:"background 0.3s" }}>
+      <div style={{ maxWidth:"1200px", margin:"0 auto" }}>
+      {/* header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+          <h1 style={{ margin:0, fontSize:"24px", fontWeight:700, color:appBg==="black"?"#FFFFFF":"#000000" }}>Task Tracker</h1>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ padding:"8px", border:`1px solid ${appBg==="black"?"#444444":"rgba(0,0,0,0.2)"}`, borderRadius:"6px", fontSize:"13px", background:appBg==="black"?"#333333":"white", color:appBg==="black"?"#FFFFFF":"#000000" }} />
+        </div>
+        <div style={{ display:"flex", gap:"8px" }}>
+          {tab === "today" && todaySections.some(s => s.items.some(it => it.done)) && (
+            <button onClick={() => {
+              const completedTasks = [];
+              todaySections.forEach(section => {
+                section.items.forEach(item => {
+                  if (item.done) {
+                    completedTasks.push({
+                      ...item,
+                      section: section.id,
+                      sectionInfo: { id: section.id, label: section.label, emoji: section.emoji, color: section.color, fontColor: section.fontColor }
+                    });
+                  }
+                });
+              });
+              if (completedTasks.length > 0) {
+                persistDone([...done, ...completedTasks]);
+                persistToday(todaySections.map(s => ({ ...s, items: s.items.filter(it => !it.done) })));
+              }
+            }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
+          )}
+          {tab === "future" && powerUp.some(s => s.items.some(it => it.done)) && (
+            <button onClick={() => { 
+              const completedTasks = []; 
+              powerUp.forEach(section => { 
+                section.items.forEach(item => { 
+                  if(item.done) {
+                    completedTasks.push({
+                      ...item,
+                      section: section.id,
+                      sectionInfo: { id: section.id, label: section.label, emoji: section.emoji, color: section.color, fontColor: section.fontColor }
+                    });
+                  }
+                }); 
+              }); 
+              if(completedTasks.length > 0) { 
+                persistDone([...done, ...completedTasks]); 
+                persistPowerUp(powerUp.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); 
+              } 
+            }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
+          )}
+          {tab === "projects" && projects.some(s => s.items.some(it => it.done)) && (
+            <button onClick={() => { 
+              const completedTasks = []; 
+              projects.forEach(section => { 
+                section.items.forEach(item => { 
+                  if(item.done) {
+                    completedTasks.push({
+                      ...item,
+                      section: section.id,
+                      sectionInfo: { id: section.id, label: section.label, emoji: section.emoji, color: section.color, fontColor: section.fontColor }
+                    });
+                  }
+                }); 
+              }); 
+              if(completedTasks.length > 0) { 
+                persistDone([...done, ...completedTasks]); 
+                persistProjects(projects.map(s => ({ ...s, items: s.items.filter(it => !it.done) }))); 
+              } 
+            }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
+          )}
+          <button onClick={() => setShowBackup(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>💾 Backup</button>
+          <button onClick={() => setShowRestore(true)} style={{ background:appBg==="black"?"#1A1A1A":"rgba(0,0,0,0.08)", color:appBg==="black"?"#FFFFFF":"inherit", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px" }}>📥 Restore</button>
+          <button onClick={() => setShowClear(true)} style={{ background:"#C43A3A", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>🗑 Clear</button>
+        </div>
+      </div>
+
+      {/* tabs */}
+      <div style={{ display:"flex", gap:"8px", marginBottom:"24px", borderBottom:`2px solid ${appBg==="black"?"#444444":"rgba(0,0,0,0.08)"}`, paddingBottom:"0", alignItems:"center" }}>
+        {["today", "future", "projects", "done"].map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            style={{
+              background:"none",
+              border:"none",
+              padding:"12px 16px",
+              cursor:"pointer",
+              fontSize:"14px",
+              fontWeight: t === tab ? 700 : 400,
+              borderBottom: t === tab ? `3px solid ${appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.6)"}` : "none",
+              color: t === tab ? (appBg==="black"?"#FFFFFF":"rgba(0,0,0,0.8)") : (appBg==="black"?"rgba(255,255,255,0.45)":"rgba(0,0,0,0.45)"),
+              marginBottom:"-2px"
+            }}>
+            {t === "today" ? "Today" : t === "future" ? "Future" : t === "projects" ? "Projects" : "Done"}
+          </button>
+        ))}
+        
+        {/* BG Toggle Switch - Inline */}
+        <button 
+          onClick={() => setAppBg(appBg === "white" ? "black" : "white")}
+          style={{
+            width: "40px",
+            height: "22px",
+            background: appBg === "white" ? "#FFFFFF" : "#1A1A1A",
+            border: `2px solid ${appBg === "white" ? "#000000" : "#FFFFFF"}`,
+            borderRadius: "11px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: appBg === "white" ? "flex-start" : "flex-end",
+            padding: "1px",
+            transition: "all 0.3s ease",
+            marginLeft: "auto",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.1)"
+          }}
+        >
+          <div style={{
+            width: "16px",
+            height: "16px",
+            background: appBg === "white" ? "#FFD700" : "#4A90E2",
+            borderRadius: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "10px",
+            transition: "all 0.3s ease"
+          }}>
+            {appBg === "white" ? "☀️" : "🌙"}
+          </div>
+        </button>
+      </div>
+
+      {/* content - Today */}
+      {tab === "today" && (
+        <>
+          <div className="today-grid">
+            {todaySections.map((section, si) => {
+              const isCollapsed = getCollapsedState(`today-${si}`);
+              return (
+              <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
+              <div 
+                style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:(section.color==="#FFFFFF"||section.color==="#000000")?`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`:"none", minHeight:"72px", display:"flex", flexDirection:"column" }}>
+                {/* section header */}
+                <SectionHeader
+                  section={section}
+                  si={si}
+                  isCollapsed={isCollapsed}
+                  onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`today-${si}`]: !isCollapsed})}
+                  onRename={(name) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,label:name}))}
+                  onSetEmoji={(emoji) => {
+                    const sectionLabel = section.label;
+                    const updatedToday = todaySections.map((s,i) => i!==si?s:{...s,emoji});
+                    const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                    const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                    persistToday(updatedToday);
+                    persistPowerUp(updatedPowerUp);
+                    persistProjects(updatedProjects);
+                  }}
+                  onSetColor={(color) => {
+                    const sectionLabel = section.label;
+                    const updatedToday = todaySections.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent});
+                    const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                    const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                    persistToday(updatedToday);
+                    persistPowerUp(updatedPowerUp);
+                    persistProjects(updatedProjects);
+                  }}
+                  onSetFontColor={(fc) => persistToday(todaySections.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
+                  onDelete={() => persistToday(todaySections.filter((_,i) => i!==si))}
+                  onMoveUp={() => moveSectionUp(si)}
+                  onMoveDown={() => moveSectionDown(si)}
+                  canMoveUp={si>0}
+                  canMoveDown={si<todaySections.length-1}
+                />
+                
+                {/* items - only show if not collapsed */}
+                {!isCollapsed && section.items.map((item, ii) => (
+                  <TaskItem
+                    key={ii}
+                    item={item}
+                    index={ii}
+                    total={section.items.length}
+                    accent={section.accent}
+                    fontColor={section.fontColor}
+                    isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
+                    onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
+                    onDragEnd={() => setDraggedTask(null)}
+                    onToggle={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
+                    onDelete={() => persistToday(todaySections.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
+                    onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                    onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                    onToggleTimer={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:toggleTimer(it))}))}
+                    onAddTime={(mins) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,estimatedTime:(it.estimatedTime||0)+(mins*60)})}))}
+
+                    onMoveCategory={() => setMovingItem({si,ii})}
+                    onEditText={(newText) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
+                    onEditRecurs={(recurs) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))}
+                    onToggleUrgent={() => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))}
+                    onSetDeadline={(d) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))}
+                    onSetExecutionDate={(d) => persistToday(todaySections.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
+                  />
+                ))}
+
+                {/* Add item input (always visible when not collapsed) */}
+                {!isCollapsed && (
+                  <div style={{ padding:"8px 6px", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
+                    <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                      <input
+                        autoFocus={addingItemInSection === si}
+                        type="text"
+                        value={newItemText[si] || ""}
+                        onChange={(e) => setNewItemText({...newItemText, [si]: e.target.value})}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            addItemToSection("today", si, newItemText[si] || "");
+                            setAddingItemInSection(null);
+                          }
+                          if (e.key === "Escape") {
+                            setAddingItemInSection(null);
+                          }
+                        }}
+                        placeholder="+ Add task…"
+                        style={{ flex:1, border:"none", background:"transparent", fontSize:"13px", outline:"none", padding:"4px 0", fontFamily:"'Atkinson Hyperlegible', sans-serif", color:"rgba(0,0,0,0.5)" }}
+                      />
+                      <button
+                        onClick={() => addItemToSection("today", si, newItemText[si] || "")}
+                        style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600 }}>
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            );
+          })}
+          </div>
+          {/* add section */}
+          <div style={{ marginBottom:"16px" }}>
+            {addingSection ? (
+              <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
+                <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. Work, Personal…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                  <button onClick={() => { if(newSecName) persistToday([...todaySections, { id:`today-${Date.now()}`, label:newSecName, emoji:"📝", color:"#F5EDD3", accent:"#C4B83A", fontColor:"black", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                  <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:appBg==="black"?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.03)", border:`2px dashed ${appBg==="black"?"rgba(255,255,255,0.2)":"rgba(0,0,0,0.1)"}`, borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.3)" }}>+ Add section</button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* content - Future */}
+      {tab === "future" && (
+        <>
+          {/* sort options */}
+          <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center" }}>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
+            <button onClick={() => setFutureSort("all")} style={{ background:futureSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
+            <button onClick={() => { setFutureSort("deadline"); setFutureFilterCat("all"); }} style={{ background:futureSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
+            <button onClick={() => { setFutureSort("executionDate"); setFutureFilterCat("all"); }} style={{ background:futureSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
+            
+            {futureSort !== "all" && (
+              <>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginLeft:"12px" }}>Category:</span>
+                <select value={futureFilterCat} onChange={e => setFutureFilterCat(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+                  <option value="all">All categories</option>
+                  {powerUp
+                    .map(s => s.label)
+                    .filter((v, i, a) => a.indexOf(v) === i)
+                    .sort()
+                    .map(catName => {
+                      const section = powerUp.find(s => s.label === catName);
+                      const hasDate = section && section.items.some(item => 
+                        (futureSort === "deadline" && item.deadline) || 
+                        (futureSort === "executionDate" && item.executionDate)
+                      );
+                      return (
+                        <option key={catName} value={catName}>{hasDate ? "● " : ""}{catName}</option>
+                      );
+                    })
+                  }
+                </select>
+              </>
+            )}
+          </div>
+          
+          {/* All view - Grid with sections */}
+          {futureSort === "all" && (
+            <div className="today-grid">
+              {powerUp.map((section, si) => {
+                const isCollapsed = getCollapsedState(`future-${si}`);
+                return (
+                <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
+                <div 
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:(section.color==="#FFFFFF"||section.color==="#000000")?`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`:"none", minHeight:"72px", display:"flex", flexDirection:"column" }}>
+                  {/* section header */}
+                  <SectionHeader
+                    section={section}
+                    si={si}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`future-${si}`]: !isCollapsed})}
+                    onRename={(name) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onSetEmoji={(emoji) => {
+                      const sectionLabel = section.label;
+                      const updatedPowerUp = powerUp.map((s,i) => i!==si?s:{...s,emoji});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      persistPowerUp(updatedPowerUp);
+                      persistToday(updatedToday);
+                      persistProjects(updatedProjects);
+                    }}
+                    onSetColor={(color) => {
+                      const sectionLabel = section.label;
+                      const updatedPowerUp = powerUp.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      const updatedProjects = projects.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      persistPowerUp(updatedPowerUp);
+                      persistToday(updatedToday);
+                      persistProjects(updatedProjects);
+                    }}
+                    onSetFontColor={(fc) => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
+                    onDelete={() => persistPowerUp(powerUp.filter((_,i) => i!==si))}
+                    onMoveUp={() => { if(si>0) { const newSections=[...powerUp]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistPowerUp(newSections); } }}
+                    onMoveDown={() => { if(si<powerUp.length-1) { const newSections=[...powerUp]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistPowerUp(newSections); } }}
+                    canMoveUp={si>0}
+                    canMoveDown={si<powerUp.length-1}
+                  />
+                  
+                  {/* items */}
+                  {!isCollapsed && section.items.map((item, ii) => (
+                    <TaskItem
+                      key={ii}
+                      item={item}
+                      index={ii}
+                      total={section.items.length}
+                      accent={section.accent}
+                      fontColor={section.fontColor}
+                      isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
+                      onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
+                      onDragEnd={() => setDraggedTask(null)}
+                      onToggle={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
+                      onDelete={() => persistPowerUp(powerUp.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
+                      onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onToggleTimer={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:toggleTimer(it))}))}
+                      onAddTime={(mins) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,estimatedTime:(it.estimatedTime||0)+(mins*60)})}))}
+                      onMoveCategory={() => setPuActions({si,ii:ii,item:section.items[ii],section,isProject:false})}
+                      onEditText={(newText) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
+                      onEditRecurs={(recurs) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))}
+                      onToggleUrgent={() => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))}
+                      onSetDeadline={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))}
+                      onSetExecutionDate={(d) => persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
+                      onExecuteToday={() => {
+                        const item = section.items[ii];
+                        const sectionLabel = section.label;
+                        
+                        // Check if section exists in Today
+                        let existingSection = todaySections.find(s => s.label === sectionLabel);
+                        let updatedToday;
+                        
+                        if (existingSection) {
+                          // Add to existing section
+                          updatedToday = todaySections.map(s => 
+                            s.label === sectionLabel ? {...s, items: [...s.items, item]} : s
+                          );
+                        } else {
+                          // Create new section with same color/emoji/fontColor
+                          const newSection = {
+                            id: `today-${Date.now()}`,
+                            label: sectionLabel,
+                            emoji: section.emoji,
+                            color: section.color,
+                            accent: section.accent,
+                            fontColor: section.fontColor,
+                            items: [item]
+                          };
+                          updatedToday = [...todaySections, newSection];
+                        }
+                        
+                        // Remove from Future
+                        persistPowerUp(powerUp.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
+                        persistToday(updatedToday);
+                      }}
+                    />
+                  ))}
+
+                  {/* Add item input */}
+                  {!isCollapsed && (
+                    <div style={{ padding:"8px 6px", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
+                      <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                        <input
+                          type="text"
+                          value={newItemText[`future-${si}`] || ""}
+                          onChange={(e) => setNewItemText({...newItemText, [`future-${si}`]: e.target.value})}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              addItemToSection("future", si, newItemText[`future-${si}`] || "");
+                              setNewItemText({...newItemText, [`future-${si}`]: ""});
+                            }
+                            if (e.key === "Escape") {
+                              setNewItemText({...newItemText, [`future-${si}`]: ""});
+                            }
+                          }}
+                          placeholder="+ Add task…"
+                          style={{ flex:1, border:"none", background:"transparent", fontSize:"13px", outline:"none", padding:"4px 0", fontFamily:"'Atkinson Hyperlegible', sans-serif", color:"rgba(0,0,0,0.5)" }}
+                        />
+                        <button
+                          onClick={() => {
+                            addItemToSection("future", si, newItemText[`future-${si}`] || "");
+                            setNewItemText({...newItemText, [`future-${si}`]: ""});
+                          }}
+                          style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600 }}>
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              );
+            })}
+            </div>
+          )}
+          
+          {/* Deadline/Execution view - Flat card grid */}
+          {futureSort !== "all" && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:"12px" }}>
+              {powerUp.flatMap((section, si) => 
+                section.items.map((item, ii) => ({
+                  ...item,
+                  si,
+                  ii,
+                  section,
+                  sortDate: futureSort === "deadline" ? (item.deadline || "9999-12-31") : (item.executionDate || "9999-12-31")
+                }))
+              )
+              .filter(item => (futureSort === "deadline" ? item.deadline : item.executionDate) && (futureFilterCat === "all" || item.section.label === futureFilterCat))
+              .sort((a, b) => a.sortDate.localeCompare(b.sortDate))
+              .map((item, idx) => (
+                <div key={idx} style={{ background:item.section.color, borderRadius:"12px", padding:"12px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", display:"flex", flexDirection:"column", gap:"6px" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                    <span style={{ fontSize:"18px", flexShrink:0, lineHeight:1 }}>{item.section.emoji}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"13px", fontWeight:item.urgent?700:500, color:item.urgent?"#C43A3A":item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", marginBottom:"4px" }}>{item.text}</div>
+                      <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.45)", display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                        {item.executionDate && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>📅 {fmtShort(item.executionDate)}</span>}
+                        {item.deadline && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>⏳ {fmtShort(item.deadline)}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => persistPowerUp(powerUp.map((s,i)=>i!==item.si?s:{...s,items:s.items.map((it,j)=>j!==item.ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))} style={{ flexShrink:0, width:"18px", height:"18px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+                      {item.done && <span style={{ color:"white", fontSize:"9px", fontWeight:700 }}>✓</span>}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* add section for Future */}
+          {futureSort === "all" && (
+            <div style={{ marginBottom:"16px" }}>
+              {addingSection ? (
+                <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
+                  <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Section name</p>
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. Read Later, Learn…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                    <button onClick={() => { if(newSecName) persistPowerUp([...powerUp, { id:`future-${Date.now()}`, label:newSecName, emoji:"⭐", color:"#F5EDD3", accent:"#C4B83A", fontColor:"black", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                    <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:appBg==="black"?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.03)", border:`2px dashed ${appBg==="black"?"rgba(255,255,255,0.2)":"rgba(0,0,0,0.1)"}`, borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:appBg==="black"?"rgba(255,255,255,0.5)":"rgba(0,0,0,0.3)" }}>+ Add section</button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* content - Projects */}
+      {tab === "projects" && (
+        <>
+          {/* sort options */}
+          <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center" }}>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>View:</span>
+            <button onClick={() => setProjectsSort("all")} style={{ background:projectsSort==="all"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>All</button>
+            <button onClick={() => { setProjectsSort("deadline"); setProjectsFilterCat("all"); }} style={{ background:projectsSort==="deadline"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>⏳ Deadline</button>
+            <button onClick={() => { setProjectsSort("executionDate"); setProjectsFilterCat("all"); }} style={{ background:projectsSort==="executionDate"?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px", color:"rgba(0,0,0,0.7)" }}>📅 Execution</button>
+            
+            {projectsSort !== "all" && (
+              <>
+                <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginLeft:"12px" }}>Category:</span>
+                <select value={projectsFilterCat} onChange={e => setProjectsFilterCat(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+                  <option value="all">All categories</option>
+                  {projects
+                    .map(s => s.label)
+                    .filter((v, i, a) => a.indexOf(v) === i)
+                    .sort()
+                    .map(catName => {
+                      const section = projects.find(s => s.label === catName);
+                      const hasDate = section && section.items.some(item => 
+                        (projectsSort === "deadline" && item.deadline) || 
+                        (projectsSort === "executionDate" && item.executionDate)
+                      );
+                      return (
+                        <option key={catName} value={catName}>{hasDate ? "● " : ""}{catName}</option>
+                      );
+                    })
+                  }
+                </select>
+              </>
+            )}
+          </div>
+          
+          {/* All view - Grid with sections */}
+          {projectsSort === "all" && (
+            <div className="today-grid">
+              {projects.map((section, si) => {
+                const isCollapsed = getCollapsedState(`projects-${si}`);
+                return (
+                <div key={si} style={{ breakInside:"avoid", position:"relative" }}>
+                <div 
+                  style={{ background:section.color, borderRadius:"12px", padding:"8px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", border:(section.color==="#FFFFFF"||section.color==="#000000")?`0.3px solid ${appBg==="white"?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.5)"}`:"none", minHeight:"72px", display:"flex", flexDirection:"column" }}>
+                  {/* section header */}
+                  <SectionHeader
+                    section={section}
+                    si={si}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={() => setCollapsedSections({...collapsedSections, [`projects-${si}`]: !isCollapsed})}
+                    onRename={(name) => persistProjects(projects.map((s,i) => i!==si?s:{...s,label:name}))}
+                    onSetEmoji={(emoji) => {
+                      const sectionLabel = section.label;
+                      const updatedProjects = projects.map((s,i) => i!==si?s:{...s,emoji});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,emoji}:s);
+                      persistProjects(updatedProjects);
+                      persistToday(updatedToday);
+                      persistPowerUp(updatedPowerUp);
+                    }}
+                    onSetColor={(color) => {
+                      const sectionLabel = section.label;
+                      const updatedProjects = projects.map((s,i) => i!==si?s:{...s,color:color.hex,accent:color.accent});
+                      const updatedToday = todaySections.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      const updatedPowerUp = powerUp.map(s => s.label===sectionLabel?{...s,color:color.hex,accent:color.accent}:s);
+                      persistProjects(updatedProjects);
+                      persistToday(updatedToday);
+                      persistPowerUp(updatedPowerUp);
+                    }}
+                    onSetFontColor={(fc) => persistProjects(projects.map((s,i) => i!==si?s:{...s,fontColor:fc}))}
+                    onDelete={() => persistProjects(projects.filter((_,i) => i!==si))}
+                    onMoveUp={() => { if(si>0) { const newSections=[...projects]; [newSections[si],newSections[si-1]]=[newSections[si-1],newSections[si]]; persistProjects(newSections); } }}
+                    onMoveDown={() => { if(si<projects.length-1) { const newSections=[...projects]; [newSections[si],newSections[si+1]]=[newSections[si+1],newSections[si]]; persistProjects(newSections); } }}
+                    canMoveUp={si>0}
+                    canMoveDown={si<projects.length-1}
+                  />
+                  
+                  {/* items */}
+                  {!isCollapsed && section.items.map((item, ii) => (
+                    <TaskItem
+                      key={ii}
+                      item={item}
+                      index={ii}
+                      total={section.items.length}
+                      accent={section.accent}
+                      fontColor={section.fontColor}
+                      isDragging={draggedTask?.si===si && draggedTask?.ii===ii}
+                      onDragStart={(e, idx) => { setDraggedTask({si,ii:idx}); e.dataTransfer.effectAllowed="move"; }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e, idx) => { e.preventDefault(); if(draggedTask?.si===si && draggedTask?.ii!==idx) { const newItems=[...section.items]; const [m]=newItems.splice(draggedTask.ii,1); newItems.splice(idx,0,m); persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } setDraggedTask(null); }}
+                      onDragEnd={() => setDraggedTask(null)}
+                      onToggle={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))}
+                      onDelete={() => persistProjects(projects.map((s,i) => i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}))}
+                      onMoveUp={() => { if(ii>0) { const newItems=[...section.items]; [newItems[ii],newItems[ii-1]]=[newItems[ii-1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onMoveDown={() => { if(ii<section.items.length-1) { const newItems=[...section.items]; [newItems[ii],newItems[ii+1]]=[newItems[ii+1],newItems[ii]]; persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:newItems})); } }}
+                      onToggleTimer={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:toggleTimer(it))}))}
+                      onAddTime={(mins) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,estimatedTime:(it.estimatedTime||0)+(mins*60)})}))}
+                      onMoveCategory={() => setPuActions({si,ii,item:section.items[ii],section,isProject:true})}
+                      onEditText={(newText) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,text:newText})}))}
+                      onEditRecurs={(recurs) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,recurs})}))}
+                      onToggleUrgent={() => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,urgent:!it.urgent})}))}
+                      onSetDeadline={(d) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,deadline:d})}))}
+                      onSetExecutionDate={(d) => persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.map((it,j)=>j!==ii?it:{...it,executionDate:d})}))}
+                      onExecuteToday={() => {
+                        const item = section.items[ii];
+                        const sectionLabel = section.label;
+                        
+                        // Check if section exists in Today
+                        let existingSection = todaySections.find(s => s.label === sectionLabel);
+                        let updatedToday;
+                        
+                        if (existingSection) {
+                          // Add to existing section
+                          updatedToday = todaySections.map(s => 
+                            s.label === sectionLabel ? {...s, items: [...s.items, item]} : s
+                          );
+                        } else {
+                          // Create new section with same color/emoji/fontColor
+                          const newSection = {
+                            id: `today-${Date.now()}`,
+                            label: sectionLabel,
+                            emoji: section.emoji,
+                            color: section.color,
+                            accent: section.accent,
+                            fontColor: section.fontColor,
+                            items: [item]
+                          };
+                          updatedToday = [...todaySections, newSection];
+                        }
+                        
+                        // Remove from Projects
+                        persistProjects(projects.map((s,i)=>i!==si?s:{...s,items:s.items.filter((_,j)=>j!==ii)}));
+                        persistToday(updatedToday);
+                      }}
+                    />
+                  ))}
+
+                  {/* Add item input */}
+                  {!isCollapsed && (
+                    <div style={{ padding:"8px 6px", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
+                      <div style={{ display:"flex", gap:"6px", alignItems:"center" }}>
+                        <input
+                          type="text"
+                          value={newItemText[`projects-${si}`] || ""}
+                          onChange={(e) => setNewItemText({...newItemText, [`projects-${si}`]: e.target.value})}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              addItemToSection("projects", si, newItemText[`projects-${si}`] || "");
+                              setNewItemText({...newItemText, [`projects-${si}`]: ""});
+                            }
+                            if (e.key === "Escape") {
+                              setNewItemText({...newItemText, [`projects-${si}`]: ""});
+                            }
+                          }}
+                          placeholder="+ Add task…"
+                          style={{ flex:1, border:"none", background:"transparent", fontSize:"13px", outline:"none", padding:"4px 0", fontFamily:"'Atkinson Hyperlegible', sans-serif", color:"rgba(0,0,0,0.5)" }}
+                        />
+                        <button
+                          onClick={() => {
+                            addItemToSection("projects", si, newItemText[`projects-${si}`] || "");
+                            setNewItemText({...newItemText, [`projects-${si}`]: ""});
+                          }}
+                          style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"6px", padding:"3px 7px", fontSize:"11px", cursor:"pointer", color:"rgba(0,0,0,0.45)", fontWeight:600 }}>
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              );
+            })}
+            </div>
+          )}
+          
+          {/* Deadline/Execution view - Flat card grid */}
+          {projectsSort !== "all" && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:"12px" }}>
+              {projects.flatMap((section, si) => 
+                section.items.map((item, ii) => ({
+                  ...item,
+                  si,
+                  ii,
+                  section,
+                  sortDate: projectsSort === "deadline" ? (item.deadline || "9999-12-31") : (item.executionDate || "9999-12-31")
+                }))
+              )
+              .filter(item => (projectsSort === "deadline" ? item.deadline : item.executionDate) && (projectsFilterCat === "all" || item.section.label === projectsFilterCat))
+              .sort((a, b) => a.sortDate.localeCompare(b.sortDate))
+              .map((item, idx) => (
+                <div key={idx} style={{ background:item.section.color, borderRadius:"12px", padding:"12px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", display:"flex", flexDirection:"column", gap:"6px" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                    <span style={{ fontSize:"18px", flexShrink:0, lineHeight:1 }}>{item.section.emoji}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"13px", fontWeight:item.urgent?700:500, color:item.urgent?"#C43A3A":item.done?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.78)", textDecoration:item.done?"line-through":"none", marginBottom:"4px" }}>{item.text}</div>
+                      <div style={{ fontSize:"11px", color:"rgba(0,0,0,0.45)", display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                        {item.executionDate && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>📅 {fmtShort(item.executionDate)}</span>}
+                        {item.deadline && <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>⏳ {fmtShort(item.deadline)}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => persistProjects(projects.map((s,i)=>i!==item.si?s:{...s,items:s.items.map((it,j)=>j!==item.ii?it:{...it,done:!it.done,completedAt:!it.done?todayStr():null})}))} style={{ flexShrink:0, width:"18px", height:"18px", borderRadius:"50%", border:item.done?"none":"2px solid rgba(0,0,0,0.28)", background:item.done?"rgba(0,0,0,0.32)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:0 }}>
+                      {item.done && <span style={{ color:"white", fontSize:"9px", fontWeight:700 }}>✓</span>}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* add section for Projects */}
+          {projectsSort === "all" && (
+            <div style={{ marginBottom:"16px" }}>
+              {addingSection ? (
+                <div style={{ background:"#EEE9E1", borderRadius:"16px", padding:"16px" }}>
+                  <p style={{ margin:"0 0 8px", fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Project name</p>
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    <input autoFocus value={newSecName} onChange={e => setNewSecName(e.target.value)} placeholder="e.g. SFHEA, D.E.B.T App…" style={{ flex:1, border:"none", borderBottom:"2px solid #8A7A60", background:"transparent", fontSize:"13px", outline:"none", padding:"3px 0" }} />
+                    <button onClick={() => { if(newSecName) persistProjects([...projects, { id:`proj-${Date.now()}`, label:newSecName, emoji:"🎯", color:"#F5EDD3", accent:"#C4B83A", fontColor:"black", items:[] }]); setNewSecName(""); setAddingSection(false); }} style={{ background:"#2C2C2C", border:"none", borderRadius:"7px", color:"white", padding:"5px 12px", cursor:"pointer", fontSize:"12px", fontWeight:700 }}>Add</button>
+                    <button onClick={() => setAddingSection(false)} style={{ background:"rgba(0,0,0,0.08)", border:"none", borderRadius:"7px", padding:"5px 8px", cursor:"pointer" }}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingSection(true)} style={{ width:"100%", background:"rgba(0,0,0,0.03)", border:"2px dashed rgba(0,0,0,0.1)", borderRadius:"16px", padding:"16px", cursor:"pointer", fontSize:"13px", color:"rgba(0,0,0,0.3)" }}>+ New project</button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* content - Done */}
+      {tab === "done" && (
+        <>
+          {/* filter options */}
+          <div style={{ marginBottom:"16px", display:"flex", gap:"8px", alignItems:"center", flexWrap:"wrap" }}>
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)" }}>Category:</span>
+            <select value={doneFilterCat} onChange={e => setDoneFilterCat(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+              <option value="all">All categories</option>
+              {[
+                ...new Set(done.map(item => item.section || "Orphan"))
+              ]
+              .sort((a, b) => a === "Orphan" ? 1 : b === "Orphan" ? -1 : a.localeCompare(b))
+              .map(catName => {
+                const hasCompleted = done.some(item => (item.section || "Orphan") === catName);
+                return (
+                  <option key={catName} value={catName}>{hasCompleted ? "● " : ""}{catName}</option>
+                );
+              })}
+            </select>
+            
+            <span style={{ fontSize:"12px", color:"rgba(0,0,0,0.45)", marginLeft:"12px" }}>Month:</span>
+            <select value={doneFilterMonth} onChange={e => setDoneFilterMonth(e.target.value)} style={{ padding:"4px 8px", border:"1px solid rgba(0,0,0,0.15)", borderRadius:"6px", fontSize:"12px", background:"white", cursor:"pointer" }}>
+              <option value="all">All months</option>
+              {[...new Set(done
+                .filter(item => item.completedAt)
+                .map(item => {
+                  const d = new Date(item.completedAt + "T00:00:00");
+                  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                })
+              )]
+              .sort()
+              .reverse()
+              .map(monthStr => {
+                const [year, month] = monthStr.split("-");
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                const displayMonth = monthNames[parseInt(month) - 1];
+                return (
+                  <option key={monthStr} value={monthStr}>{displayMonth} {year}</option>
+                );
+              })}
+            </select>
+          </div>
+          
+          {/* completed tasks - flat card grid */}
+          {done.length > 0 ? (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:"12px" }}>
+              {done
+                .filter(item => {
+                  const catMatch = doneFilterCat === "all" || (item.section || "Orphan") === doneFilterCat;
+                  let monthMatch = true;
+                  if (doneFilterMonth !== "all" && item.completedAt) {
+                    const d = new Date(item.completedAt + "T00:00:00");
+                    const itemMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    monthMatch = itemMonth === doneFilterMonth;
+                  }
+                  return catMatch && monthMatch;
+                })
+                .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""))
+                .map((item, idx) => {
+                  const catName = item.section || "Orphan";
+                  const sectionExists = powerUp.some(s => s.label === item.section) || projects.some(s => s.label === item.section);
+                  const isOrphan = !sectionExists && item.section;
+                  
+                  // Get section emoji/color if it exists, else use orphan style
+                  let displayEmoji = "📦";
+                  let displayColor = "#F5F1EB";
+                  let displayTextColor = "rgba(0,0,0,0.5)";
+                  
+                  if (!isOrphan) {
+                    const foundSection = [...powerUp, ...projects].find(s => s.label === item.section);
+                    if (foundSection) {
+                      displayEmoji = foundSection.emoji;
+                      displayColor = foundSection.color;
+                    }
+                  } else {
+                    displayTextColor = "rgba(0,0,0,0.35)";
+                  }
+                  
+                  return (
+                    <div key={idx} style={{ background:displayColor, borderRadius:"12px", padding:"12px", boxShadow:"0 2px 4px rgba(0,0,0,0.05)", display:"flex", flexDirection:"column", gap:"6px", opacity:isOrphan?0.7:1 }}>
+                      <div style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                        <span style={{ fontSize:"18px", flexShrink:0, lineHeight:1, opacity:isOrphan?0.6:1 }}>{displayEmoji}</span>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:"13px", fontWeight:500, color:"rgba(0,0,0,0.78)", textDecoration:"line-through", marginBottom:"4px" }}>{item.text}</div>
+                          <div style={{ fontSize:"11px", color:displayTextColor, display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center" }}>
+                            <span style={{ background:"rgba(0,0,0,0.06)", padding:"2px 6px", borderRadius:"3px" }}>✓ {fmtShort(item.completedAt || "")}</span>
+                            {isOrphan && <span style={{ background:"rgba(0,0,0,0.1)", padding:"2px 6px", borderRadius:"3px", fontSize:"10px", fontStyle:"italic" }}>orphan</span>}
+                          </div>
+                        </div>
+                        <button onClick={() => persistDone(done.filter((_,i) => i!==idx))} style={{ flexShrink:0, color:"rgba(0,0,0,0.2)", background:"none", border:"none", cursor:"pointer", fontSize:"16px" }}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          ) : (
+            <div style={{ padding:"40px 20px", background:"rgba(0,0,0,0.03)", borderRadius:"12px", textAlign:"center", color:"rgba(0,0,0,0.3)" }}>
+              <p style={{ margin:0, fontSize:"13px" }}>No completed tasks yet. Go get 'em! 🚀</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Modals */}
+      {movingItem && (
+        <MoveTodayCategoryModal
+          item={todaySections[movingItem.si].items[movingItem.ii]}
+          fromSi={movingItem.si}
+          sections={todaySections}
+          onMove={(toSi) => moveTodayItem(movingItem.si, movingItem.ii, toSi)}
+          onClose={() => setMovingItem(null)} />
+      )}
+      {showClear && (
+        <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ background:"white", borderRadius:"16px", padding:"24px", maxWidth:"400px", width:"100%", boxShadow:"0 8px 40px rgba(0,0,0,0.2)" }}>
+            <h2 style={{ fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"16px", fontWeight:700, margin:"0 0 8px" }}>🗑 Clear all data?</h2>
+            <p style={{ fontSize:"13px", color:"rgba(0,0,0,0.55)", margin:"0 0 8px", fontFamily:"'Atkinson Hyperlegible', sans-serif" }}>
+              This wipes everything and resets to a fresh blank planner. This cannot be undone.
+            </p>
+            <p style={{ fontSize:"12px", color:"#C43A3A", margin:"0 0 18px", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontWeight:600 }}>
+              ⚠️ Backup first if you might want your data back!
+            </p>
+            <div style={{ display:"flex", gap:"8px" }}>
+              <button onClick={() => {
+                localStorage.removeItem(LS_TODAY);
+                localStorage.removeItem(LS_DONE);
+                localStorage.removeItem(LS_PU);
+                localStorage.removeItem(LS_DATE);
+                localStorage.removeItem(LS_PROJ);
+                setShowClear(false);
+                onReset();
+              }} style={{ flex:1, background:"#C43A3A", border:"none", borderRadius:"8px", color:"white", padding:"11px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px", fontWeight:700 }}>Yes, clear everything</button>
+              <button onClick={() => setShowClear(false)} style={{ background:"rgba(0,0,0,0.07)", border:"none", borderRadius:"8px", color:"rgba(0,0,0,0.6)", padding:"11px 16px", cursor:"pointer", fontFamily:"'Atkinson Hyperlegible', sans-serif", fontSize:"13px" }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+      {showBackup  && <BackupModal today={todaySections} done={done} powerUp={powerUp} date={date} projects={projects} appBg={appBg} season={season} onClose={() => setShowBackup(false)} />}
+      {showRestore && <RestoreModal appBg={appBg} onRestoreAndReset={() => { setShowRestore(false); onReset(); }} onSetAppBg={setAppBg} onSetSeason={setSeason} onClose={() => setShowRestore(false)} />}
+    </div>
+  );
+}
+
+function App() {
+  const [key, setKey] = useState(0);
+  return <Planner key={key} onReset={() => setKey(k => k+1)} />;
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
