@@ -760,29 +760,43 @@ function Planner({ onReset }) {
 
   // Subscribe to Firebase on mount + when sync code changes
   useEffect(() => {
+    if (!window.fbDatabase) { setSyncStatus("offline"); return; }
     setSyncStatus("connecting");
+
+    // Listen to Firebase's built-in connection status
+    const connectedRef = window.fbDatabase.ref(".info/connected");
+    const connHandler = connectedRef.on("value", (snap) => {
+      setSyncStatus(snap.val() === true ? "synced" : "connecting");
+    });
+
+    // Subscribe to this user's data
     const unsub = subscribeToFirebase(syncCode, (data) => {
       isReceivingRef.current = true; // mark that next state changes come from Firebase
-      if (data.today)    { setTodaySections(data.today); save(LS_TODAY, data.today); }
-      if (data.done)     { setDone(data.done); save(LS_DONE, data.done); }
-      if (data.powerUp)  { setPowerUp(data.powerUp); save(LS_PU, data.powerUp); }
-      if (data.projects) { setProjects(data.projects); save(LS_PROJ, data.projects); }
+      // Firebase drops empty arrays, so normalize: ensure arrays exist + every section has items[]
+      const fixSections = (arr) => (Array.isArray(arr) ? arr : []).map(s => ({ ...s, items: Array.isArray(s.items) ? s.items : [] }));
+      const t = fixSections(data.today);
+      const dn = Array.isArray(data.done) ? data.done : [];
+      const pu = fixSections(data.powerUp);
+      const pr = fixSections(data.projects);
+      setTodaySections(t); save(LS_TODAY, t);
+      setDone(dn); save(LS_DONE, dn);
+      setPowerUp(pu); save(LS_PU, pu);
+      setProjects(pr); save(LS_PROJ, pr);
       if (data.date)     { setDate(data.date); save(LS_DATE, data.date); }
       if (data.appBg)    setAppBg(data.appBg);
       if (data.season)   setSeason(data.season);
       setSyncStatus("synced");
       setTimeout(() => { isReceivingRef.current = false; }, 100);
     });
+
     // If nothing in Firebase yet, push current local data up
     setTimeout(() => {
-      if (window.fbDatabase) {
-        window.fbDatabase.ref("users/" + syncCode).once("value").then(snap => {
-          if (!snap.val()) { pushToFirebase(syncCode, bundleData()); }
-          setSyncStatus("synced");
-        }).catch(() => setSyncStatus("offline"));
-      } else { setSyncStatus("offline"); }
-    }, 500);
-    return unsub;
+      window.fbDatabase.ref("users/" + syncCode).once("value").then(snap => {
+        if (!snap.val()) { pushToFirebase(syncCode, bundleData()); }
+      }).catch((e) => console.warn("Initial Firebase read failed", e));
+    }, 800);
+
+    return () => { connectedRef.off("value", connHandler); unsub(); };
   }, [syncCode]);
 
   // Persist functions: update state, save locally, AND push to Firebase
@@ -853,7 +867,7 @@ function Planner({ onReset }) {
           <input type="date" value={date} onChange={e => { const nd=e.target.value; setDate(nd); save(LS_DATE, nd); if(!isReceivingRef.current) pushToFirebase(syncCode, bundleData({date:nd})); }} style={{ padding:"8px", border:`1px solid ${appBg==="black"?"#444444":"rgba(0,0,0,0.2)"}`, borderRadius:"6px", fontSize:"13px", background:appBg==="black"?"#333333":"white", color:appBg==="black"?"#FFFFFF":"#000000" }} />
         </div>
         <div style={{ display:"flex", gap:"8px" }}>
-          {tab === "today" && todaySections.some(s => s.items.some(it => it.done)) && (
+          {tab === "today" && todaySections.some(s => (s.items||[]).some(it => it.done)) && (
             <button onClick={() => {
               const completedTasks = [];
               todaySections.forEach(section => {
@@ -873,7 +887,7 @@ function Planner({ onReset }) {
               }
             }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
-          {tab === "future" && powerUp.some(s => s.items.some(it => it.done)) && (
+          {tab === "future" && powerUp.some(s => (s.items||[]).some(it => it.done)) && (
             <button onClick={() => { 
               const completedTasks = []; 
               powerUp.forEach(section => { 
@@ -893,7 +907,7 @@ function Planner({ onReset }) {
               } 
             }} style={{ background:"#5A9E62", color:"white", border:"none", borderRadius:"8px", padding:"8px 12px", cursor:"pointer", fontSize:"12px", fontWeight:600 }}>✓ Clear Completed</button>
           )}
-          {tab === "projects" && projects.some(s => s.items.some(it => it.done)) && (
+          {tab === "projects" && projects.some(s => (s.items||[]).some(it => it.done)) && (
             <button onClick={() => { 
               const completedTasks = []; 
               projects.forEach(section => { 
